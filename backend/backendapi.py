@@ -2,10 +2,14 @@ from fastapi import FastAPI, Path
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import openai 
+import openai
 import json
+from uuid import uuid4
+
+env_path = Path(".") / ".env.local"
 load_dotenv()
 
+from services.generateComposition import generate_composition_plan, generate_music_from_plan
 
 import os
 from supabase import create_client, Client
@@ -33,44 +37,10 @@ class MusicPrompt(BaseModel):
     prompt: str
     length_ms: int = 10000
 
-def generate_composition_plan(prompt: str, length_ms: int):
-    system_prompt = """
-You generate music composition plans in STRICT JSON.
-No explanations.
-No markdown.
-No copyrighted artists or songs.
-Follow this schema exactly:
-{
-  "positiveGlobalStyles": [],
-  "negativeGlobalStyles": [],
-  "sections": [
-    {
-      "sectionName": "",
-      "positiveLocalStyles": [],
-      "negativeLocalStyles": [],
-      "durationMs": 0,
-      "lines": []
-    }
-  ]
-}
-"""
 
-    response = openai.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-    )
+class LyricsPrompt(BaseModel):
+    prompt: str
 
-    return json.loads(response.choices[0].message.content)
-
-def generate_music_from_plan(plan):
-    audio_stream = elevenlabs.music.compose(
-        composition_plan=plan
-    )
-    return audio_stream
 
 @app.get("/")
 def read_root():
@@ -96,15 +66,39 @@ def get_tool(category: str | None=None):
     )
     return response.data
 
-
-@app.post("/songs")
-def create_song(song: Song):
-    response = (
-        supabase.table("songs")
-        .insert({"name": tool.name, "price": tool.price, "category": tool.category})
-        .execute()
+@app.post("/music/generate")
+def generate_music(req: MusicPrompt):
+    plan = generate_composition_plan(
+        req.prompt,
+        req.length_ms
     )
-    return response.data[0]
+
+    track = generate_music(plan)
+
+    with open(track.filename, "wb") as f:
+        f.write(track.audio)
+
+    final_plan = track.json["composition_plan"]
+
+    final_lyrics = {
+        section["sectionName"]: section.get("lines", [])
+        for section in final_plan.get("sections", [])
+        if section.get("lines")
+    }
+
+    db = supabase.table("music").insert({
+        "prompt": req.prompt,
+        "lyrics": final_lyrics,
+        "composition_plan": final_plan,
+        "song_metadata": track.json,
+        "audio_path": track.filename,
+    }).execute()
+
+    return {
+        "song_id": db.data[0]["id"],
+        "lyrics": final_lyrics,
+    }
+
 
 @app.put("/tools/{product_id}")
 def update_music(product_id: int, tool: UpdateTool):
