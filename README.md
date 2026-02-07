@@ -41,3 +41,15 @@ Set `SUPABASE_URL` and `SUPABASE_KEY` in a `.env` file in the project root or in
 ```bash
 uvicorn backendapi:app --reload
 ```
+
+### 4. Run the MP3-to-MIDI converter (standalone)
+
+If the main API fails to start, you can run only the converter for the MP3→MIDI feature:
+
+```bash
+cd backend
+source venv/bin/activate
+uvicorn run_converter:app --reload --port 8000
+```
+
+Ensure the frontend uses `NEXT_PUBLIC_API_URL=http://localhost:8000` (or the port you use).

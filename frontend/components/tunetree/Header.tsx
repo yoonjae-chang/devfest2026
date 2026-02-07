@@ -11,7 +11,13 @@ export default function Header() {
         >
           TuneTree
         </Link>
-        <nav className="ml-auto" aria-label="Main navigation">
+        <nav className="ml-auto flex items-center gap-6" aria-label="Main navigation">
+          <Link
+            href="/convert"
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            MP3 → MIDI
+          </Link>
           <AuthButton />
         </nav>
       </div>
