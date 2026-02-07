@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
 import os
+from routers.generate import generate_router
+from routers.customize import customize_router
 from supabase import create_client, Client
 
 env_path = Path(".") / ".env.local"
@@ -16,7 +18,8 @@ elevenlabs_api_key: str = os.environ.get("ELEVENLABS_API_KEY")
 
 app = FastAPI()
 
-app.include_router(mp3_to_midi_router)
+app.include_router(generate_router)
+app.include_router(customize_router)
 
 app.add_middleware(
     CORSMiddleware,
