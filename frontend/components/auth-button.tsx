@@ -5,10 +5,15 @@ import { LogoutButton } from "./logout-button";
 
 export async function AuthButton() {
   const supabase = await createClient();
+  if (!supabase) {
+    return (
+      <div className="text-sm text-amber-600">
+        Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local
+      </div>
+    );
+  }
 
-  // You can also use getUser() which will be slower.
   const { data } = await supabase.auth.getClaims();
-
   const user = data?.claims;
 
   return user ? (

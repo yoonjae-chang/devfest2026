@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Header from "@/components/tunetree/Header";
 import PromptInput from "@/components/tunetree/PromptInput";
 import StyleSelect, { type StyleOption } from "@/components/tunetree/StyleSelect";
 import LyricsToggle from "@/components/tunetree/LyricsToggle";
@@ -20,8 +19,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col">
-      <Header />
-
       <main className="flex-1 flex flex-col items-center py-12 sm:py-16">
         <div className="w-full px-6 text-center space-y-4 mb-8">
           <div className="relative h-[120px] sm:h-[160px] w-full max-w-6xl mx-auto min-w-0">
