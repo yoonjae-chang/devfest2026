@@ -30,6 +30,7 @@ def chat_completion_json(system_prompt: str, user_prompt: str):
         )
         
         content = response.choices[0].message.content
+        print(response)
         if not content:
             raise ValueError("Empty response from OpenAI API")
         
