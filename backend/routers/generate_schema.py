@@ -34,6 +34,7 @@ class GenerateInitialSchema(BaseModel):
     user_id: str
     run_id: str
     
+
 @generate_router.post("/composition-plan")
 async def generate_initial_schema(req: GenerateInitialSchema):
 
