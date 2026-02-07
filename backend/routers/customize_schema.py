@@ -6,10 +6,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from supabase import create_client, Client
 
 from services.chatCompletion import chat_completion_json
+from services.auth import get_current_user
 
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
@@ -30,7 +31,10 @@ class ComparingComposition(BaseModel):
     run_id: str
 
 @customize_router.post("/compare-compositions")
-async def compare_compositions(req: ComparingComposition):
+async def compare_compositions(req: ComparingComposition, user: dict = Depends(get_current_user)):
+    # Verify that the user_id in the request matches the authenticated user
+    if req.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
     # Determine which composition is better and which is worse
     if req.composition_plan_1_better:
         better_id = req.composition_plan_1_id
