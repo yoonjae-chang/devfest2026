@@ -1,58 +1,69 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
-import Link from "next/link";
-import { Suspense } from "react";
+"use client";
+
+import { useState } from "react";
+import Header from "@/components/tunetree/Header";
+import PromptInput from "@/components/tunetree/PromptInput";
+import StyleSelect, { type StyleOption } from "@/components/tunetree/StyleSelect";
+import LyricsToggle from "@/components/tunetree/LyricsToggle";
+import GenerateButton from "@/components/tunetree/GenerateButton";
+import { VideoText } from "@/components/ui/video-text";
 
 export default function Home() {
+  const [prompt, setPrompt] = useState("");
+  const [genres, setGenres] = useState<StyleOption[]>([]);
+  const [includeLyrics, setIncludeLyrics] = useState(true);
+
+  const handleGenerate = () => {
+    const formState = { prompt, genres, includeLyrics };
+    console.log("Generate form state:", formState);
+  };
+
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
-            {!hasEnvVars ? (
-              <EnvVarWarning />
-            ) : (
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            )}
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+      <Header />
+
+      <main className="flex-1 flex flex-col items-center py-12 sm:py-16">
+        <div className="w-full px-6 text-center space-y-4 mb-8">
+          <div className="relative h-[120px] sm:h-[160px] w-full max-w-6xl mx-auto min-w-0">
+            <VideoText
+              src="/video/hero.webm"
+              className="w-full h-full"
+              fontSize={16}
+              fontWeight="bold"
+            >
+              TuneTree
+            </VideoText>
           </div>
-        </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
+          <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
+            Describe your idea and let TuneTree generate music.
+          </p>
         </div>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
-          </p>
-          <ThemeSwitcher />
-        </footer>
-      </div>
-    </main>
+        <div className="w-full max-w-2xl flex flex-col items-center gap-8 px-6">
+          <div className="w-full space-y-6">
+            <PromptInput value={prompt} onChange={setPrompt} />
+
+            <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+              <div className="flex-1 min-w-0">
+                <StyleSelect value={genres} onChange={setGenres} />
+              </div>
+              <div className="flex items-end">
+                <LyricsToggle
+                  checked={includeLyrics}
+                  onChange={setIncludeLyrics}
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <GenerateButton
+                disabled={!prompt.trim()}
+                onClick={handleGenerate}
+              />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
