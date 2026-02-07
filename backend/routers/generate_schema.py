@@ -1,12 +1,17 @@
 """
-Customize a composition plan by pairwise comparison of compositions.
+Generate a composition plan for a user prompt.
 """
 
+import io
+import tempfile
+import zipfile
+from pathlib import Path as PathLib
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from supabase import create_client, Client
 
 from services.chatCompletion import chat_completion_json
@@ -18,66 +23,80 @@ url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
 supabase: Client = create_client(url, key)
 
-customize_router = APIRouter(prefix="/customize", tags=["customize"])
+generate_router = APIRouter(prefix="/generate", tags=["generate"])
 
 BaseModel = pydantic.BaseModel
 
-class ComparingComposition(BaseModel):
-    composition_plan_1_id: int
-    composition_plan_2_id: int
-    composition_plan_1_better: bool  # True if plan 1 is better, False if plan 2 is better
+class GenerateInitialSchema(BaseModel):
+    user_prompt: str
+    styles: list[str]
+    lyrics_exists: bool
     user_id: str
     run_id: str
+    
+@generate_router.post("/composition-plan")
+async def generate_initial_schema(req: GenerateInitialSchema):
 
-@customize_router.post("/compare-compositions")
-async def compare_compositions(req: ComparingComposition):
-    # Determine which composition is better and which is worse
-    if req.composition_plan_1_better:
-        better_id = req.composition_plan_1_id
-        worse_id = req.composition_plan_2_id
+    if req.lyrics_exists:
+        plan = chat_completion_json(
+            system_prompt=f"You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            - positiveGlobalStyles: list of styles that are positive for the composition
+            - negativeGlobalStyles: list of styles that are negative for the composition
+            - lyrics: lyrics in order of sections in the following format:
+                - sectionName: name of the section
+                - lines: list of lines in the section
+            - description: description of the composition
+            Here is an example of an excellent description:
+            'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
+            Here is an example of a composition schema:
+            {{
+                "positiveGlobalStyles": ["happy", "upbeat"],
+                "negativeGlobalStyles": ["sad", "depressing"],
+                "lyrics": {{
+                    "Verse 1": "Verse 1 lines",
+                    "Verse 2": "Verse 2 lines",
+                    "Chorus": "Chorus lines",
+                    "Bridge": "Bridge lines",
+                    "Outro": "Outro lines"
+                }},
+                "description": "a description of the composition", 
+            }}
+            ",
+            user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles} \nLyrics exist: {req.lyrics_exists}"
+        )
     else:
-        better_id = req.composition_plan_2_id
-        worse_id = req.composition_plan_1_id
-    
-    # Fetch both composition plans from Supabase
-    try:
-        better_response = supabase.table("composition_plans").select("composition_plan").eq("id", better_id).execute()
-        worse_response = supabase.table("composition_plans").select("composition_plan").eq("id", worse_id).execute()
-        
-        if not better_response.data or not worse_response.data:
-            raise HTTPException(status_code=404, detail="One or both composition plans not found")
-        
-        composition_plan_better = better_response.data[0]["composition_plan"]
-        composition_plan_worse = worse_response.data[0]["composition_plan"]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching composition plans: {str(e)}")
+        plan = chat_completion_json(
+            system_prompt=f"You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            - positiveGlobalStyles: list of styles that are positive for the composition
+            - negativeGlobalStyles: list of styles that are negative for the composition
+            - description: description of the composition
+            Here is an example of an excellent description:
+            'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
+            Here is an example of a composition schema:
+            {{
+                "positiveGlobalStyles": ["happy", "upbeat"],
+                "negativeGlobalStyles": ["sad", "depressing"],
+                "description": "a description of the composition", 
+            }}
+            ",
+            user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles}"
+        )
 
-    # Generate a new improved composition plan based on the comparison
-    new_composition_plan = chat_completion_json(
-        system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
-
-The new composition plan should be a JSON object with the following fields:
-- positiveGlobalStyles: list of styles that are positive for the composition
-- negativeGlobalStyles: list of styles that are negative for the composition
-- description: description of the composition
-- lyrics: (if present in either plan) lyrics in order of sections with sectionName and lines
-
-Analyze what makes the better composition plan superior and incorporate those elements while also learning from the worse plan to avoid its weaknesses. Create a composition plan that is better than both.""",
-        user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
-    )
-    
-    # Save the new composition plan to Supabase
+    # Save to Supabase
     saved_id = None
     try:
         response = supabase.table("composition_plans").insert({
             "user_id": req.user_id,
             "run_id": req.run_id,
-            "composition_plan": new_composition_plan,
-            "better_than_id": worse_id,  # Reference to the worse composition it's improving upon
+            "user_prompt": req.user_prompt,
+            "user_styles": req.styles,
+            "lyrics_exists": req.lyrics_exists,
+            "composition_plan": plan,
+            "better_than_id": None,  # Initial plans don't improve upon anything
         }).execute()
         saved_id = response.data[0]["id"] if response.data else None
     except Exception as e:
         print(f"Error saving to Supabase: {e}")
-        raise HTTPException(status_code=500, detail=f"Error saving new composition plan: {str(e)}")
+        saved_id = None
 
-    return {"id": saved_id, "composition_plan": new_composition_plan}
+    return {"id": saved_id, "composition_plan": plan, "user_id": req.user_id, "run_id": req.run_id}

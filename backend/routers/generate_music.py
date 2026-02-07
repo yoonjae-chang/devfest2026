@@ -1,5 +1,5 @@
 """
-Customize a composition plan by pairwise comparison of compositions.
+Generate music from a composition plan.
 """
 
 import os
