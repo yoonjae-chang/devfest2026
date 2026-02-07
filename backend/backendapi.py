@@ -12,6 +12,7 @@ load_dotenv(dotenv_path=env_path)
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
 supabase: Client = create_client(url, key)
+elevenlabs_api_key: str = os.environ.get("ELEVENLABS_API_KEY")
 
 app = FastAPI()
 
@@ -28,14 +29,14 @@ app.add_middleware(
 )
 
 
-class Tool(BaseModel):
-    name: str
-    price: int
-    category: str
-class UpdateTool(BaseModel):
-    name: str | None=None
-    price: int | None=None
-    category: str | None=None
+class MusicPrompt(BaseModel):
+    prompt: str
+    length_ms: int = 10000
+
+
+class LyricsPrompt(BaseModel):
+    prompt: str
+
 
 @app.get("/")
 def read_root():
@@ -61,15 +62,39 @@ def get_tool(category: str | None=None):
     )
     return response.data
 
-
-@app.post("/music")
-def create_tool(tool: Tool):
-    response = (
-        supabase.table("music")
-        .insert({"name": tool.name, "price": tool.price, "category": tool.category})
-        .execute()
+@app.post("/music/generate")
+def generate_music(req: MusicPrompt):
+    plan = generate_composition_plan(
+        req.prompt,
+        req.length_ms
     )
-    return response.data[0]
+
+    track = generate_music(plan)
+
+    with open(track.filename, "wb") as f:
+        f.write(track.audio)
+
+    final_plan = track.json["composition_plan"]
+
+    final_lyrics = {
+        section["sectionName"]: section.get("lines", [])
+        for section in final_plan.get("sections", [])
+        if section.get("lines")
+    }
+
+    db = supabase.table("music").insert({
+        "prompt": req.prompt,
+        "lyrics": final_lyrics,
+        "composition_plan": final_plan,
+        "song_metadata": track.json,
+        "audio_path": track.filename,
+    }).execute()
+
+    return {
+        "song_id": db.data[0]["id"],
+        "lyrics": final_lyrics,
+    }
+
 
 @app.put("/tools/{product_id}")
 def update_music(product_id: int, tool: UpdateTool):
