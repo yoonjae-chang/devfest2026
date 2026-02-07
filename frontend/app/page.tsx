@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import PromptInput from "@/components/tunetree/PromptInput";
 import StyleSelect, { type StyleOption } from "@/components/tunetree/StyleSelect";
 import LyricsToggle from "@/components/tunetree/LyricsToggle";
@@ -8,6 +9,7 @@ import GenerateButton from "@/components/tunetree/GenerateButton";
 import { VideoText } from "@/components/ui/video-text";
 
 export default function Home() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [genres, setGenres] = useState<StyleOption[]>([]);
   const [includeLyrics, setIncludeLyrics] = useState(true);
@@ -15,6 +17,7 @@ export default function Home() {
   const handleGenerate = () => {
     const formState = { prompt, genres, includeLyrics };
     console.log("Generate form state:", formState);
+    router.push("/results");
   };
 
   return (
