@@ -7,10 +7,11 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from supabase import create_client, Client
 from elevenlabs import ElevenLabs
 from services.chatCompletion import chat_completion_json
+from services.auth import get_current_user
 
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
@@ -44,7 +45,10 @@ MUSIC_DIR = Path(__file__).parent.parent / "music"
 MUSIC_DIR.mkdir(exist_ok=True)
 
 @generate_music_router.post("/lyrics-substitution")
-async def lyrics_substitution_endpoint(req: LyricsSubstitution):
+async def lyrics_substitution_endpoint(req: LyricsSubstitution, user: dict = Depends(get_current_user)):
+    # Verify that the user_id in the request matches the authenticated user
+    if req.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
     """Substitute lyrics in a composition plan."""
     try:
         # Fetch composition plan from Supabase
@@ -82,7 +86,10 @@ async def lyrics_substitution_endpoint(req: LyricsSubstitution):
         raise HTTPException(status_code=500, detail=f"Error in lyrics substitution: {str(e)}")
 
 @generate_music_router.post("/generate-final-composition")
-async def generate_final_composition_endpoint(req: GenerateFinalComposition):
+async def generate_final_composition_endpoint(req: GenerateFinalComposition, user: dict = Depends(get_current_user)):
+    # Verify that the user_id in the request matches the authenticated user
+    if req.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
     """Generate final music composition from a composition plan and save to Supabase and local storage."""
     try:
         # Fetch composition plan from Supabase

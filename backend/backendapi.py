@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Path
+from fastapi import FastAPI, Path, Depends
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -31,6 +31,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose Authorization header for CORS
 )
 
 
@@ -43,6 +44,12 @@ class LyricsPrompt(BaseModel):
     prompt: str
 
 
+from services.auth import get_current_user
+
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to the Music API"}
+async def read_root(user: dict = Depends(get_current_user)):
+    return {
+        "message": "Welcome to the Music API",
+        "user_id": user["user_id"],
+        "email": user["email"]
+    }

@@ -10,11 +10,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Depends
 from fastapi.responses import StreamingResponse
 from supabase import create_client, Client
 
 from services.chatCompletion import chat_completion_json
+from services.auth import get_current_user
 
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
@@ -36,7 +37,10 @@ class GenerateInitialSchema(BaseModel):
     
 
 @generate_router.post("/composition-plan")
-async def generate_initial_schema(req: GenerateInitialSchema):
+async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depends(get_current_user)):
+    # Verify that the user_id in the request matches the authenticated user
+    if req.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
 
     if req.lyrics_exists:
         plan = chat_completion_json(
