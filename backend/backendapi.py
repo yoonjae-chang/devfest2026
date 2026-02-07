@@ -18,7 +18,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[   
-        "https://ai-tool-directory-rose.vercel.app/" 
+        "http://localhost:3000" 
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -37,12 +37,12 @@ class UpdateTool(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the AI Tools API"}
+    return {"message": "Welcome to the Music API"}
 
 @app.get("/fetchbyproductid/{product_id}")
 def read_tool(product_id: int = Path(..., gt=0)):
     response = (
-        supabase.table("tools")
+        supabase.table("music")
         .select("*")
         .eq("id", product_id)
         .execute()
@@ -52,7 +52,7 @@ def read_tool(product_id: int = Path(..., gt=0)):
 @app.get("/fetchbycategory/")
 def get_tool(category: str | None=None):
     response = (
-        supabase.table("tools")
+        supabase.table("music")
         .select("*")
         .eq("category", category)
         .execute()
@@ -60,17 +60,17 @@ def get_tool(category: str | None=None):
     return response.data
 
 
-@app.post("/tools")
+@app.post("/music")
 def create_tool(tool: Tool):
     response = (
-        supabase.table("tools")
+        supabase.table("music")
         .insert({"name": tool.name, "price": tool.price, "category": tool.category})
         .execute()
     )
     return response.data[0]
 
 @app.put("/tools/{product_id}")
-def update_student(product_id: int, tool: UpdateTool):
+def update_music(product_id: int, tool: UpdateTool):
     update_data = {k: v for k, v in tool.dict().items() if v is not None}
 
     if not update_data:
@@ -78,7 +78,7 @@ def update_student(product_id: int, tool: UpdateTool):
 
     response = (
         supabase
-        .table("tools")
+        .table("music")
         .update(update_data)
         .eq("id", product_id)
         .execute()
@@ -89,7 +89,7 @@ def update_student(product_id: int, tool: UpdateTool):
 @app.get("/deletebyproductid/{product_id}")
 def read_tool(product_id: int = Path(..., gt=0)):
     response = (
-        supabase.table("tools")
+        supabase.table("music")
         .delete()
         .eq("id", product_id)
         .execute()
