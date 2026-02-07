@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
 import os
-from routers.generate import generate_router
-from routers.customize import customize_router
+from routers.generate_schema import generate_router
+from routers.customize_schema import customize_router
+from routers.generate_music import generate_music_router
 from supabase import create_client, Client
 
 env_path = Path(".") / ".env.local"
@@ -20,6 +21,7 @@ app = FastAPI()
 
 app.include_router(generate_router)
 app.include_router(customize_router)
+app.include_router(generate_music_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,86 +46,3 @@ class LyricsPrompt(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Music API"}
-
-@app.get("/fetchbyproductid/{product_id}")
-def read_tool(product_id: int = Path(..., gt=0)):
-    response = (
-        supabase.table("music")
-        .select("*")
-        .eq("id", product_id)
-        .execute()
-    )
-    return response.data[0]
-
-@app.get("/fetchbycategory/")
-def get_tool(category: str | None=None):
-    response = (
-        supabase.table("music")
-        .select("*")
-        .eq("category", category)
-        .execute()
-    )
-    return response.data
-
-@app.post("/music/generate")
-def generate_music(req: MusicPrompt):
-    plan = generate_composition_plan(
-        req.prompt,
-        req.length_ms
-    )
-
-    track = generate_music(plan)
-
-    with open(track.filename, "wb") as f:
-        f.write(track.audio)
-
-    final_plan = track.json["composition_plan"]
-
-    final_lyrics = {
-        section["sectionName"]: section.get("lines", [])
-        for section in final_plan.get("sections", [])
-        if section.get("lines")
-    }
-
-    db = supabase.table("music").insert({
-        "prompt": req.prompt,
-        "lyrics": final_lyrics,
-        "composition_plan": final_plan,
-        "song_metadata": track.json,
-        "audio_path": track.filename,
-    }).execute()
-
-    return {
-        "song_id": db.data[0]["id"],
-        "lyrics": final_lyrics,
-    }
-
-
-@app.put("/tools/{product_id}")
-def update_music(product_id: int, tool: UpdateTool):
-    update_data = {k: v for k, v in tool.dict().items() if v is not None}
-
-    if not update_data:
-        return {"error": "No fields to update"}
-
-    response = (
-        supabase
-        .table("music")
-        .update(update_data)
-        .eq("id", product_id)
-        .execute()
-    )
-
-    return {"message": "tool updated successfully"}
-    
-@app.get("/deletebyproductid/{product_id}")
-def read_tool(product_id: int = Path(..., gt=0)):
-    response = (
-        supabase.table("music")
-        .delete()
-        .eq("id", product_id)
-        .execute()
-    )
-    return response.data[0]
-
-

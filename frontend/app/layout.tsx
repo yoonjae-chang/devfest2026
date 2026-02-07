@@ -46,10 +46,14 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <Suspense fallback={<HeaderFallback />}>
-            <Header />
-          </Suspense>
-          {children}
+          <div className="flex flex-col min-h-screen">
+            <Suspense fallback={<HeaderFallback />}>
+              <Header />
+            </Suspense>
+            <div className="flex-1 flex flex-col min-h-0">
+              {children}
+            </div>
+          </div>
         </ThemeProvider>
       </body>
     </html>

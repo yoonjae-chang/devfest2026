@@ -34,12 +34,13 @@ class GenerateInitialSchema(BaseModel):
     user_id: str
     run_id: str
     
+
 @generate_router.post("/composition-plan")
 async def generate_initial_schema(req: GenerateInitialSchema):
 
     if req.lyrics_exists:
         plan = chat_completion_json(
-            system_prompt=f"You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
             - positiveGlobalStyles: list of styles that are positive for the composition
             - negativeGlobalStyles: list of styles that are negative for the composition
             - lyrics: lyrics in order of sections in the following format:
@@ -61,12 +62,12 @@ async def generate_initial_schema(req: GenerateInitialSchema):
                 }},
                 "description": "a description of the composition", 
             }}
-            ",
+            """,
             user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles} \nLyrics exist: {req.lyrics_exists}"
         )
     else:
         plan = chat_completion_json(
-            system_prompt=f"You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
             - positiveGlobalStyles: list of styles that are positive for the composition
             - negativeGlobalStyles: list of styles that are negative for the composition
             - description: description of the composition
@@ -78,7 +79,7 @@ async def generate_initial_schema(req: GenerateInitialSchema):
                 "negativeGlobalStyles": ["sad", "depressing"],
                 "description": "a description of the composition", 
             }}
-            ",
+            """,
             user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles}"
         )
 
