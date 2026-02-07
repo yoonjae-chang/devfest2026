@@ -8,7 +8,7 @@ From the project root:
 
 ```bash
 cd backend
-python3 -m venv venv
+python3.11 -m venv venv
 ```
 
 Activate the virtual environment:

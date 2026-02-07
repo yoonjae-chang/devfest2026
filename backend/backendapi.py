@@ -14,6 +14,8 @@ from services.generateComposition import generate_composition_plan, generate_mus
 import os
 from supabase import create_client, Client
 
+from mp3_to_midi import router as mp3_to_midi_router
+
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
 supabase: Client = create_client(url, key)
@@ -21,6 +23,7 @@ elevenlabs_api_key: str = os.environ.get("ELEVENLABS_API_KEY")
 
 app = FastAPI()
 
+app.include_router(mp3_to_midi_router)
 
 app.add_middleware(
     CORSMiddleware,
