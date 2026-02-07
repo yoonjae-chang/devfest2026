@@ -2,11 +2,12 @@ from fastapi import FastAPI, Path
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-load_dotenv()
-
-
+from pathlib import Path
 import os
 from supabase import create_client, Client
+
+env_path = Path(".") / ".env.local"
+load_dotenv(dotenv_path=env_path)
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
