@@ -4,9 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()
 
-
 import os
 from supabase import create_client, Client
+
+from mp3_to_midi import router as mp3_to_midi_router
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
@@ -14,6 +15,7 @@ supabase: Client = create_client(url, key)
 
 app = FastAPI()
 
+app.include_router(mp3_to_midi_router)
 
 app.add_middleware(
     CORSMiddleware,
