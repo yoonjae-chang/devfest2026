@@ -14,7 +14,8 @@ build/
 venv/
 .venv/
 env/
-.env
+.env*
+!.env.example
 
 # IDE
 .idea/
