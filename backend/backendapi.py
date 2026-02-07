@@ -15,6 +15,7 @@ supabase: Client = create_client(url, key)
 
 app = FastAPI()
 
+app.include_router(mp3_to_midi_router)
 
 app.add_middleware(
     CORSMiddleware,
