@@ -2,6 +2,8 @@ from fastapi import FastAPI, Path
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import openai 
+import json
 load_dotenv()
 
 
@@ -11,6 +13,7 @@ from supabase import create_client, Client
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
+elevenlabs_api_key: str = os.environ.get("ELEVENLABS_API_KEY")
 
 app = FastAPI()
 
@@ -26,14 +29,48 @@ app.add_middleware(
 )
 
 
-class Tool(BaseModel):
-    name: str
-    price: int
-    category: str
-class UpdateTool(BaseModel):
-    name: str | None=None
-    price: int | None=None
-    category: str | None=None
+class MusicPrompt(BaseModel):
+    prompt: str
+    length_ms: int = 10000
+
+def generate_composition_plan(prompt: str, length_ms: int):
+    system_prompt = """
+You generate music composition plans in STRICT JSON.
+No explanations.
+No markdown.
+No copyrighted artists or songs.
+Follow this schema exactly:
+{
+  "positiveGlobalStyles": [],
+  "negativeGlobalStyles": [],
+  "sections": [
+    {
+      "sectionName": "",
+      "positiveLocalStyles": [],
+      "negativeLocalStyles": [],
+      "durationMs": 0,
+      "lines": []
+    }
+  ]
+}
+"""
+
+    response = openai.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+    )
+
+    return json.loads(response.choices[0].message.content)
+
+def generate_music_from_plan(plan):
+    audio_stream = elevenlabs.music.compose(
+        composition_plan=plan
+    )
+    return audio_stream
 
 @app.get("/")
 def read_root():
@@ -60,10 +97,10 @@ def get_tool(category: str | None=None):
     return response.data
 
 
-@app.post("/music")
-def create_tool(tool: Tool):
+@app.post("/songs")
+def create_song(song: Song):
     response = (
-        supabase.table("music")
+        supabase.table("songs")
         .insert({"name": tool.name, "price": tool.price, "category": tool.category})
         .execute()
     )
