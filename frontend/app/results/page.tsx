@@ -504,15 +504,6 @@ function ResultsPageContent() {
                     >
                       {isGeneratingMusicA ? "Generating..." : "Continue to Studio"}
                     </button>
-                    {generatedMusicA && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
-                        <audio controls className="w-full">
-                          <source src={`/api/music/${generatedMusicA.audio_filename}`} type="audio/mpeg" />
-                          Your browser does not support the audio element.
-                        </audio>
-                      </div>
-                    )}
                   </>
                 }
               />
@@ -543,15 +534,6 @@ function ResultsPageContent() {
                     >
                       {isGeneratingMusicB ? "Generating..." : "Continue to Studio"}
                     </button>
-                    {generatedMusicB && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
-                        <audio controls className="w-full">
-                          <source src={`/api/music/${generatedMusicB.audio_filename}`} type="audio/mpeg" />
-                          Your browser does not support the audio element.
-                        </audio>
-                      </div>
-                    )}
                   </>
                 }
               />

@@ -17,6 +17,21 @@ interface NoteShape {
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+// Salamander sampler only has C, D#, F#, A per octave; map any MIDI to nearest loaded note
+const SAMPLER_MIDI = [21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102, 105, 108];
+function nearestSamplerNote(midi: number): number {
+  if (midi <= SAMPLER_MIDI[0]) return SAMPLER_MIDI[0];
+  if (midi >= SAMPLER_MIDI[SAMPLER_MIDI.length - 1]) return SAMPLER_MIDI[SAMPLER_MIDI.length - 1];
+  let best = SAMPLER_MIDI[0];
+  for (const s of SAMPLER_MIDI) {
+    if (Math.abs(s - midi) < Math.abs(best - midi)) best = s;
+  }
+  return best;
+}
+function midiToNoteName(midi: number): string {
+  return NOTE_NAMES[midi % 12] + Math.floor(midi / 12);
+}
+
 export default function EditorPage() {
   const [midi, setMidi] = useState<Midi | null>(null);
   const [notes, setNotes] = useState<NoteShape[]>([]);
@@ -137,7 +152,7 @@ export default function EditorPage() {
     const events = notes.map((n) => [
       n.time,
       {
-        name: NOTE_NAMES[n.midi % 12] + Math.floor(n.midi / 12),
+        name: midiToNoteName(nearestSamplerNote(n.midi)),
         duration: n.duration,
         velocity: n.velocity,
       },
