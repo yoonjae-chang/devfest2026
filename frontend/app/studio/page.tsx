@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Music2, Loader2, Plus, X, Download, Upload, ArrowRight } from "lucide-react";
+import { Music2, Loader2, Plus, X, Download, Upload, ArrowRight, Play, Pause } from "lucide-react";
 import { backendApi } from "@/lib/api";
 import { appendPortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
 import { displayNameFromFilename } from "@/lib/utils";
@@ -32,6 +32,9 @@ function StudioPageContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [loadingRunMusic, setLoadingRunMusic] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
+  const audioUrlsRef = useRef<Map<number, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,21 +42,41 @@ function StudioPageContent() {
     let cancelled = false;
     setLoadingRunMusic(true);
     setError(null);
-    backendApi
-      .getRunMusicZip(runId)
-      .then(async (blob) => {
+    
+    // Fetch both the zip and final compositions to get cover images
+    Promise.all([
+      backendApi.getRunMusicZip(runId),
+      backendApi.getFinalCompositionsByRun(runId).catch(() => []) // Don't fail if this errors
+    ])
+      .then(async ([blob, finalCompositions]) => {
         if (cancelled) return;
         const JSZip = (await import("jszip")).default;
         const zip = await JSZip.loadAsync(await blob.arrayBuffer());
         const audioEntries = Object.entries(zip.files).filter(
           ([name]) => !name.endsWith("/") && AUDIO_EXT.test(name)
         );
+        
+        // Create a map of audio_filename -> cover_image_url from final compositions
+        const coverImageMap = new Map<string, string>();
+        if (Array.isArray(finalCompositions)) {
+          for (const comp of finalCompositions) {
+            if (comp.audio_filename && comp.cover_image_url) {
+              coverImageMap.set(comp.audio_filename, comp.cover_image_url);
+            }
+          }
+        }
+        
         const newFiles: File[] = [];
         for (const [name, entry] of audioEntries) {
           if (newFiles.length >= MAX_FILES) break;
           const blob = await entry.async("blob");
           const baseName = name.split("/").pop() || name;
-          newFiles.push(new File([blob], baseName, { type: blob.type || "audio/mpeg" }));
+          const file = new File([blob], baseName, { type: blob.type || "audio/mpeg" });
+          // Store cover_image_url in file metadata if available
+          if (coverImageMap.has(baseName)) {
+            (file as any).coverImageUrl = coverImageMap.get(baseName);
+          }
+          newFiles.push(file);
         }
         if (!cancelled) setFiles(newFiles);
       })
@@ -74,6 +97,37 @@ function StudioPageContent() {
       setStatus("idle");
     }
   }, [files.length]);
+
+  // Create and clean up audio object URLs
+  useEffect(() => {
+    const newUrls = new Map<number, string>();
+    files.forEach((file, index) => {
+      const url = URL.createObjectURL(file);
+      newUrls.set(index, url);
+    });
+    
+    // Clean up old URLs that are no longer needed
+    const oldUrls = audioUrlsRef.current;
+    oldUrls.forEach((url, index) => {
+      if (!newUrls.has(index)) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    
+    audioUrlsRef.current = newUrls;
+
+    return () => {
+      // Clean up all URLs on unmount or when files change
+      newUrls.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+      audioRefs.current.forEach((audio) => {
+        audio.pause();
+        audio.src = "";
+      });
+      audioRefs.current.clear();
+    };
+  }, [files]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = filterValidFiles(e.target.files || []);
@@ -137,6 +191,23 @@ function StudioPageContent() {
   };
 
   const removeFile = (index: number) => {
+    // Stop playback if this file is playing
+    if (playingIndex === index) {
+      const audio = audioRefs.current.get(index);
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+      setPlayingIndex(null);
+    }
+    // Clean up audio URL
+    const url = audioUrlsRef.current.get(index);
+    if (url) {
+      URL.revokeObjectURL(url);
+    }
+    audioUrlsRef.current.delete(index);
+    audioRefs.current.delete(index);
+    
     setFiles((prev) => {
       const newFiles = prev.filter((_, i) => i !== index);
       return newFiles;
@@ -145,6 +216,42 @@ function StudioPageContent() {
     if (status === "success") {
       setStatus("idle");
     }
+  };
+
+  const togglePlayPause = (index: number) => {
+    const audio = audioRefs.current.get(index);
+    const url = audioUrlsRef.current.get(index);
+    
+    if (!audio || !url) return;
+
+    // If clicking the same file that's playing, pause it
+    if (playingIndex === index) {
+      audio.pause();
+      setPlayingIndex(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (playingIndex !== null) {
+      const currentAudio = audioRefs.current.get(playingIndex);
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+    }
+
+    // Play the selected audio
+    audio.src = url;
+    audio.play().catch((err) => {
+      console.error("Error playing audio:", err);
+      setError("Failed to play audio");
+    });
+    setPlayingIndex(index);
+
+    // Handle when audio ends
+    audio.onended = () => {
+      setPlayingIndex(null);
+    };
   };
 
   const handleDownloadMp3 = async () => {
@@ -235,6 +342,8 @@ function StudioPageContent() {
         const file = files[i];
         const buf = await file.arrayBuffer();
         const blob = new Blob([buf], { type: file.type || "audio/mpeg" });
+        // Get cover_image_url from file metadata if it was set when loading
+        const coverImageUrl = (file as any).coverImageUrl || undefined;
         newItems.push({
           id: `${file.name}-${file.size}-${file.lastModified}-${timestamp}-${i}`,
           colorClass: PASTEL_COLORS[i % PASTEL_COLORS.length],
@@ -243,6 +352,7 @@ function StudioPageContent() {
           featured: false,
           description: "",
           lyrics: "",
+          cover_image_url: coverImageUrl,
           blob,
           fileName: file.name,
           fileSize: file.size,
@@ -329,17 +439,39 @@ function StudioPageContent() {
               </p>
             )}
             {files.length > 0 && (
-              <div className="mt-4 space-y-2 text-left max-h-32 overflow-y-auto">
+              <div className="mt-4 space-y-2 text-left max-h-96 overflow-y-auto">
                 {files.map((f, i) => (
                   <div
                     key={`${f.name}-${i}`}
-                    className="flex items-center justify-between text-sm bg-white/95 border border-white/40 rounded-lg px-3 py-2 text-gray-900 shadow-sm"
+                    className="flex items-center gap-2 text-sm bg-white/95 border border-white/40 rounded-lg px-3 py-2 text-gray-900 shadow-sm"
                   >
-                    <span className="truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => togglePlayPause(i)}
+                      className="flex-shrink-0 p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                      aria-label={playingIndex === i ? "Pause" : "Play"}
+                    >
+                      {playingIndex === i ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                    </button>
+                    <span className="truncate flex-1">{f.name}</span>
+                    <audio
+                      ref={(el) => {
+                        if (el) {
+                          audioRefs.current.set(i, el);
+                        } else {
+                          audioRefs.current.delete(i);
+                        }
+                      }}
+                      preload="metadata"
+                    />
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      className="text-gray-500 hover:text-red-600 p-1 transition-colors"
+                      className="flex-shrink-0 text-gray-500 hover:text-red-600 p-1 transition-colors"
                       aria-label="Remove file"
                     >
                       <X className="w-4 h-4" />

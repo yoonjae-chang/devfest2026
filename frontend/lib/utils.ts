@@ -13,7 +13,8 @@ export const hasEnvVars =
 /** Derive a human-readable song title from a filename (e.g. "my_song.mp3" -> "my song"). */
 export function displayNameFromFilename(filename: string): string {
   return filename
-    .replace(/\.[^.]+$/, "") // strip extension
+    .replace(/\.[^.]+$/, "")  // strip extension
+    .split("__")[0]           // remove __ and everything after
     .replace(/_/g, " ")       // underscores to spaces
     .replace(/-/g, " ")       // hyphens to spaces
     .replace(/\s+/g, " ")     // collapse multiple spaces
