@@ -155,23 +155,53 @@ export const backendApi = {
       body: JSON.stringify(data),
     });
   },
+
+  // Convert MP3/audio to MIDI via Next.js API proxy
+  convertMp3ToMidi,
 };
 
 /**
- * Convert MP3 (or other audio) files to MIDI via the Next.js API proxy
+ * Convert MP3 (or other audio) files to MIDI via the Next.js API proxy.
+ * Requires user to be logged in. Converts each file separately and combines results.
  */
-export async function convertMp3ToMidi(files: File[]): Promise<ArrayBuffer> {
-  const formData = new FormData();
+export async function convertMp3ToMidi(files: File[]): Promise<{ name: string; data: string }[]> {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("Authentication required. Please log in.");
+  }
+
+  const results: { name: string; data: string }[] = [];
   for (const file of files) {
+    const formData = new FormData();
     formData.append("files", file);
+    const res = await fetch("/api/convert/mp3-to-midi", {
+      method: "POST",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail));
+    }
+    const zipBuffer = await res.arrayBuffer();
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const midiEntries = Object.entries(zip.files).filter(
+      ([name]) => name.endsWith(".mid")
+    );
+    if (midiEntries.length === 0) {
+      throw new Error(`No MIDI produced for ${file.name}`);
+    }
+    for (const [name, entry] of midiEntries) {
+      const midiBlob = await entry.async("arraybuffer");
+      const base64 = btoa(
+        new Uint8Array(midiBlob).reduce((s, b) => s + String.fromCharCode(b), "")
+      );
+      results.push({ name, data: base64 });
+    }
   }
-  const res = await fetch("/api/convert/mp3-to-midi", {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail));
-  }
-  return res.arrayBuffer();
+  return results;
 }

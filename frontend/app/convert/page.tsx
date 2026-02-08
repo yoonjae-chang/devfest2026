@@ -3,24 +3,93 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Music2, Loader2, ArrowRight } from "lucide-react";
-import { convertMp3ToMidi } from "@/lib/api";
-import JSZip from "jszip";
+import { Music2, Loader2, ArrowRight, Plus, X } from "lucide-react";
+import { backendApi } from "@/lib/api";
+
+const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
+const MAX_FILES = 10;
+
+function filterValidFiles(fileList: FileList | File[]): File[] {
+  const arr = Array.from(fileList);
+  return arr.filter((f) => AUDIO_EXT.test(f.name));
+}
 
 export default function ConvertPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "converting" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [convertedCount, setConvertedCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const chooseInputRef = useRef<HTMLInputElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const valid = selected.filter((f) =>
-      /\.(mp3|wav|flac|ogg|m4a)$/i.test(f.name)
-    );
-    setFiles(valid);
+  const handleChooseFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = filterValidFiles(e.target.files || []);
+    setFiles(selected);
     setStatus("idle");
     setError(null);
+    e.target.value = "";
+  };
+
+  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = filterValidFiles(e.target.files || []);
+    if (selected.length === 0) {
+      e.target.value = "";
+      return;
+    }
+    setFiles((prev) => {
+      const merged = [...prev];
+      const keys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
+      for (const f of selected) {
+        if (merged.length >= MAX_FILES) break;
+        const key = `${f.name}-${f.size}-${f.lastModified}`;
+        if (!keys.has(key)) {
+          merged.push(f);
+          keys.add(key);
+        }
+      }
+      return merged;
+    });
+    setStatus("idle");
+    setError(null);
+    e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const dropped = filterValidFiles(e.dataTransfer.files);
+    if (dropped.length === 0) return;
+    setFiles((prev) => {
+      const merged = [...prev];
+      const keys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
+      for (const f of dropped) {
+        if (merged.length >= MAX_FILES) break;
+        const key = `${f.name}-${f.size}-${f.lastModified}`;
+        if (!keys.has(key)) {
+          merged.push(f);
+          keys.add(key);
+        }
+      }
+      return merged;
+    });
+    setStatus("idle");
+    setError(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleConvert = async () => {
@@ -28,21 +97,14 @@ export default function ConvertPage() {
     setStatus("converting");
     setError(null);
     try {
-      const zipBuffer = await convertMp3ToMidi(files);
-      const zip = await JSZip.loadAsync(zipBuffer);
-      const midiEntries = Object.entries(zip.files).filter(([, f]) =>
-        f.name.endsWith(".mid")
-      );
-      if (midiEntries.length === 0) {
+      const allFiles = await backendApi.convertMp3ToMidi(files);
+      if (allFiles.length === 0) {
         throw new Error("No MIDI files in the conversion result");
       }
-      const [name, entry] = midiEntries[0];
-      const midiBlob = await entry.async("arraybuffer");
-      const base64 = btoa(
-        new Uint8Array(midiBlob).reduce((s, b) => s + String.fromCharCode(b), "")
-      );
-      sessionStorage.setItem("midi_editor_data", base64);
-      sessionStorage.setItem("midi_editor_name", name);
+      sessionStorage.setItem("midi_editor_files", JSON.stringify(allFiles));
+      sessionStorage.setItem("midi_editor_data", allFiles[0].data);
+      sessionStorage.setItem("midi_editor_name", allFiles[0].name);
+      setConvertedCount(allFiles.length);
       setStatus("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
@@ -64,26 +126,73 @@ export default function ConvertPage() {
             </p>
           </div>
 
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDragging
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 hover:border-gray-400"
+            }`}
+          >
             <input
-              ref={fileInputRef}
+              ref={chooseInputRef}
               type="file"
               accept=".mp3,.wav,.flac,.ogg,.m4a"
               multiple
-              onChange={handleFileChange}
+              onChange={handleChooseFiles}
               className="hidden"
             />
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="mb-4"
-            >
-              Choose MP3 or audio files
-            </Button>
+            <input
+              ref={addInputRef}
+              type="file"
+              accept=".mp3,.wav,.flac,.ogg,.m4a"
+              multiple
+              onChange={handleAddFiles}
+              className="hidden"
+            />
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => chooseInputRef.current?.click()}
+              >
+                Choose files
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => addInputRef.current?.click()}
+                disabled={files.length >= MAX_FILES}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add more
+              </Button>
+            </div>
+            <p className="text-sm text-slate-500 mt-3">
+              or drag and drop audio files here
+            </p>
             {files.length > 0 && (
-              <p className="text-sm text-gray-600">
-                {files.length} file(s): {files.map((f) => f.name).join(", ")}
-              </p>
+              <div className="mt-4 space-y-2 text-left max-h-32 overflow-y-auto">
+                {files.map((f, i) => (
+                  <div
+                    key={`${f.name}-${i}`}
+                    className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-2"
+                  >
+                    <span className="truncate text-slate-700">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="text-slate-400 hover:text-red-600 p-1"
+                      aria-label="Remove file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-500">
+                  {files.length} / {MAX_FILES} files
+                </p>
+              </div>
             )}
           </div>
 
@@ -108,12 +217,19 @@ export default function ConvertPage() {
               )}
             </Button>
             {status === "success" && (
-              <Link href="/editor">
-                <Button variant="secondary">
-                  Open in editor
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
+              <div className="flex flex-col items-center gap-2">
+                {convertedCount > 1 && (
+                  <p className="text-sm text-slate-600">
+                    {convertedCount} files converted. Switch between them in the editor.
+                  </p>
+                )}
+                <Link href="/editor">
+                  <Button variant="secondary">
+                    Open in editor
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
 
