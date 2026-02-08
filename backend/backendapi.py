@@ -1,4 +1,7 @@
-from fastapi import FastAPI, Path, Depends
+import zipfile
+import io
+from fastapi import FastAPI, Path, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -46,6 +49,8 @@ class LyricsPrompt(BaseModel):
 
 from services.auth import get_current_user
 
+MUSIC_DIR = Path(__file__).parent / "music"
+
 @app.get("/")
 async def read_root(user: dict = Depends(get_current_user)):
     return {
@@ -53,3 +58,22 @@ async def read_root(user: dict = Depends(get_current_user)):
         "user_id": user["user_id"],
         "email": user["email"]
     }
+
+
+@app.get("/generate-music/download-run/{run_id}")
+async def download_run_music_zip(run_id: str, user: dict = Depends(get_current_user)):
+    """Download all final compositions for a run as a zip. Only returns compositions belonging to the authenticated user."""
+    response = supabase.table("final_compositions").select("*").eq("run_id", run_id).eq("user_id", user["user_id"]).order("created_at").execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="No compositions found for this run")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for row in response.data:
+            audio_filename = row.get("audio_filename")
+            if not audio_filename:
+                continue
+            audio_path = MUSIC_DIR / audio_filename
+            if audio_path.exists():
+                zf.write(audio_path, audio_filename)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/zip", headers={"Content-Disposition": f"attachment; filename=run-{run_id}-music.zip"})

@@ -1,12 +1,7 @@
 /**
- * Persists portfolio items to IndexedDB (supports File/Blob storage).
+ * In-memory portfolio storage. No persistence — data is lost on refresh.
+ * Studio and Portfolio share this store in the same session.
  */
-
-import { openDB, type IDBPDatabase } from "idb";
-
-const DB_NAME = "tunetree-portfolio";
-const DB_VERSION = 1;
-const STORE_NAME = "items";
 
 export interface StoredPortfolioItem {
   id: string;
@@ -21,38 +16,39 @@ export interface StoredPortfolioItem {
   fileLastModified: number;
 }
 
-function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
-    },
-  });
-}
+// Module-level store shared by Studio and Portfolio
+let store: StoredPortfolioItem[] = [];
 
 export async function loadPortfolioItems(): Promise<StoredPortfolioItem[]> {
-  try {
-    const db = await getDB();
-    const items = await db.getAll(STORE_NAME);
-    return items ?? [];
-  } catch {
-    return [];
+  return [...store];
+}
+
+/**
+ * Append items to the portfolio (Studio Publish). Only adds; never deletes.
+ */
+export async function appendPortfolioItems(
+  items: StoredPortfolioItem[]
+): Promise<void> {
+  if (items.length === 0) return;
+  let appended = 0;
+  for (const item of items) {
+    if (item.blob && typeof item.blob.arrayBuffer === "function") {
+      store.push(item);
+      appended++;
+    }
+  }
+  if (appended === 0) {
+    throw new Error("No valid audio files to publish. Make sure each file has playable audio.");
   }
 }
 
+/**
+ * Replace the entire portfolio (Portfolio page save). Used when user edits/reorders/deletes.
+ */
 export async function savePortfolioItems(
   items: StoredPortfolioItem[]
 ): Promise<void> {
-  try {
-    const db = await getDB();
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    await tx.store.clear();
-    for (const item of items) {
-      await tx.store.put(item);
-    }
-    await tx.done;
-  } catch (e) {
-    console.warn("Failed to save portfolio:", e);
-  }
+  store = items.filter(
+    (item) => item.blob && typeof item.blob.arrayBuffer === "function"
+  );
 }

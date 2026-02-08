@@ -1,27 +1,76 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Music2, Loader2, ArrowRight, Plus, X } from "lucide-react";
+import { Music2, Loader2, ArrowRight, Plus, X, Download, Upload } from "lucide-react";
 import { backendApi } from "@/lib/api";
+import { appendPortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const MAX_FILES = 10;
+
+const PASTEL_COLORS = [
+  "bg-sky-100", "bg-blue-100", "bg-indigo-100", "bg-violet-100", "bg-slate-200",
+  "bg-cyan-100", "bg-sky-200", "bg-blue-200", "bg-teal-100", "bg-slate-100",
+];
 
 function filterValidFiles(fileList: FileList | File[]): File[] {
   const arr = Array.from(fileList);
   return arr.filter((f) => AUDIO_EXT.test(f.name));
 }
 
+function fileNameWithoutExt(name: string): string {
+  return name.replace(/\.[^.]+$/, "");
+}
+
 export default function StudioPage() {
+  const searchParams = useSearchParams();
+  const runId = searchParams.get("run_id");
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "converting" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [convertedCount, setConvertedCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [loadingRunMusic, setLoadingRunMusic] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
   const chooseInputRef = useRef<HTMLInputElement>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!runId) return;
+    let cancelled = false;
+    setLoadingRunMusic(true);
+    setError(null);
+    backendApi
+      .getRunMusicZip(runId)
+      .then(async (blob) => {
+        if (cancelled) return;
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+        const audioEntries = Object.entries(zip.files).filter(
+          ([name]) => !name.endsWith("/") && AUDIO_EXT.test(name)
+        );
+        const newFiles: File[] = [];
+        for (const [name, entry] of audioEntries) {
+          if (newFiles.length >= MAX_FILES) break;
+          const blob = await entry.async("blob");
+          const baseName = name.split("/").pop() || name;
+          newFiles.push(new File([blob], baseName, { type: blob.type || "audio/mpeg" }));
+        }
+        if (!cancelled) setFiles(newFiles);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load generated music");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRunMusic(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
 
   const handleChooseFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = filterValidFiles(e.target.files || []);
@@ -92,6 +141,32 @@ export default function StudioPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleDownloadMp3 = async () => {
+    if (files.length === 0) return;
+    if (files.length === 1) {
+      const file = files[0];
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const file of files) {
+      zip.file(file.name, file, { binary: true });
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "studio-tracks.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleConvert = async () => {
     if (files.length === 0) return;
     setStatus("converting");
@@ -109,6 +184,43 @@ export default function StudioPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
       setStatus("error");
+    }
+  };
+
+  const handlePublish = async () => {
+    if (files.length === 0) return;
+    setError(null);
+    setPublishSuccess(false);
+    try {
+      const timestamp = Date.now();
+      const newItems: StoredPortfolioItem[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const buf = await file.arrayBuffer();
+        const blob = new Blob([buf], { type: file.type || "audio/mpeg" });
+        newItems.push({
+          id: `${file.name}-${file.size}-${file.lastModified}-${timestamp}-${i}`,
+          colorClass: PASTEL_COLORS[i % PASTEL_COLORS.length],
+          title: fileNameWithoutExt(file.name),
+          duration: null,
+          featured: false,
+          description: "",
+          blob,
+          fileName: file.name,
+          fileSize: file.size,
+          fileLastModified: file.lastModified,
+        });
+      }
+      await appendPortfolioItems(newItems);
+      setPublishSuccess(true);
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : err instanceof Error
+            ? err.message
+            : "Failed to publish to portfolio";
+      setError(message);
     }
   };
 
@@ -174,6 +286,12 @@ export default function StudioPage() {
             <p className="text-sm text-gray-700 mt-3">
               or drag and drop audio files here
             </p>
+            {loadingRunMusic && (
+              <p className="text-sm text-sky-600 mt-3 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading generated music…
+              </p>
+            )}
             {files.length > 0 && (
               <div className="mt-4 space-y-2 text-left max-h-32 overflow-y-auto">
                 {files.map((f, i) => (
@@ -205,40 +323,72 @@ export default function StudioPage() {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button
+              onClick={handleDownloadMp3}
+              disabled={files.length === 0}
+              variant="outline"
+              className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download MP3
+            </Button>
             <Button
               onClick={handleConvert}
               disabled={files.length === 0 || status === "converting"}
-              className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800"
+              className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800 disabled:opacity-50"
             >
               {status === "converting" ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Converting…
                 </>
               ) : (
                 "Convert to MIDI"
               )}
             </Button>
-            {status === "success" && (
-              <div className="flex flex-col items-center gap-2">
-                {convertedCount > 1 && (
-                  <p className="text-sm text-gray-700">
-                    {convertedCount} files converted. Switch between them in the editor.
-                  </p>
-                )}
-                <Link href="/editor">
-                  <Button
-                    variant="secondary"
-                    className="glass-button bg-white/30 text-gray-900 border-white/40 hover:bg-white/50 hover:text-gray-900"
-                  >
-                    Open in editor
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </div>
-            )}
+            <Button
+              onClick={handlePublish}
+              disabled={files.length === 0}
+              variant="outline"
+              className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900 disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Publish
+            </Button>
           </div>
+
+          {status === "success" && (
+            <div className="flex flex-col items-center gap-2">
+              {convertedCount > 1 && (
+                <p className="text-sm text-gray-700">
+                  {convertedCount} files converted. Switch between them in the editor.
+                </p>
+              )}
+              <Link href="/editor">
+                <Button
+                  variant="secondary"
+                  className="glass-button bg-white/30 text-gray-900 border-white/40 hover:bg-white/50 hover:text-gray-900"
+                >
+                  Open in editor
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {publishSuccess && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+              <p className="text-green-800 text-sm mb-2">
+                {files.length === 1 ? "Track" : `${files.length} tracks`} added to your portfolio.
+              </p>
+              <Link href="/portfolio?published=1">
+                <Button variant="outline" size="sm" className="border-green-300 text-green-800 hover:bg-green-100">
+                  View portfolio
+                </Button>
+              </Link>
+            </div>
+          )}
 
           <p className="text-center text-sm text-gray-600">
             Single-instrument tracks work best. Max 10 files, 50MB each.
