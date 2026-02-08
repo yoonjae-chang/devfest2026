@@ -79,6 +79,28 @@
     boxShadow: 0 0 0 8px var(--pulse-color);
     }
   }
+  --animate-shine: shine var(--duration) infinite linear
+;
+  @keyframes shine {
+  0% {
+    background-position: 0% 0%;
+    }
+  50% {
+    background-position: 100% 100%;
+    }
+  to {
+    background-position: 0% 0%;
+    }
+  }
+  --animate-line-shadow: line-shadow 8s linear infinite;
+  @keyframes line-shadow {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 100% -100%;
+    }
+  }
 }
 
 @layer base {
@@ -87,5 +109,20 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@keyframes line-shadow {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 100% -100%;
+  }
+}
+
+@layer utilities {
+  .after\:animate-line-shadow::after {
+    animation: line-shadow 8s linear infinite;
   }
 }

@@ -155,9 +155,21 @@ export const backendApi = {
       body: JSON.stringify(data),
     });
   },
-
   // Convert MP3/audio to MIDI via Next.js API proxy
   convertMp3ToMidi,
+
+  // GET endpoints - Fetch data from Supabase
+  getCompositionPlan: (compositionId: number) => 
+    apiRequest(`/generate/composition-plan/${compositionId}`),
+  
+  getCompositionPlansByRun: (runId: string) => 
+    apiRequest(`/generate/composition-plans/run/${runId}`),
+  
+  getFinalComposition: (compositionPlanId: number) => 
+    apiRequest(`/generate-music/final-composition/${compositionPlanId}`),
+  
+  getFinalCompositionsByRun: (runId: string) => 
+    apiRequest(`/generate-music/final-compositions/run/${runId}`),
 };
 
 /**

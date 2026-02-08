@@ -21,7 +21,8 @@ def chat_completion_json(system_prompt: str, user_prompt: str):
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
+            # model="gpt-4o",  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
+            model="gpt-4.1-nano",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
