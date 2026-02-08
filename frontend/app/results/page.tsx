@@ -30,22 +30,32 @@ function compositionPlanToSongData(
   plan: CompositionPlan,
   description?: string
 ): SongData {
-  // Extract lyrics
+  // Extract lyrics – each line on its own line (not comma-separated)
   let lyricsText = "";
   if (plan.lyrics) {
     const lyricsArray: string[] = [];
-  
+
+    function sectionToLines(content: string | { lines: string[] } | unknown): string {
+      if (Array.isArray(content)) {
+        return content.join("\n");
+      }
+      if (typeof content === "object" && content !== null && "lines" in content && Array.isArray((content as { lines: string[] }).lines)) {
+        return (content as { lines: string[] }).lines.join("\n");
+      }
+      if (typeof content === "string") {
+        // Use as-is; if the string has \n they'll show as newlines. Don't split on comma (lyrics often have commas in a line).
+        return content;
+      }
+      return String(content);
+    }
+
     for (const [sectionName, sectionContent] of Object.entries(plan.lyrics)) {
-      // If the section is an array (like your JSON), join the lines
-      if (Array.isArray(sectionContent)) {
-        lyricsArray.push(`${sectionName}:\n${sectionContent.join("\n")}`);
-      } 
-      // Fallback for strings
-      else if (typeof sectionContent === "string") {
-        lyricsArray.push(`${sectionName}:\n${sectionContent}`);
+      const lines = sectionToLines(sectionContent);
+      if (lines) {
+        lyricsArray.push(`${sectionName}:\n${lines}`);
       }
     }
-  
+
     lyricsText = lyricsArray.join("\n\n");
   }
 
@@ -460,15 +470,7 @@ function ResultsPageContent() {
             <p className="text-[#1e3a5f]/90 text-sm max-w-2xl mx-auto">
               Pick the version you like. We’ll regenerate the other based on your edits.
             </p>
-            {runId && (
-              <button
-                type="button"
-                onClick={goToStudio}
-                className="inline-block mt-2 text-sm font-medium text-[#1e3a5f] underline hover:no-underline cursor-pointer bg-transparent border-0"
-              >
-                Go to Studio — download or edit your generated tracks
-              </button>
-            )}
+            
           </div>
 
           {error && (

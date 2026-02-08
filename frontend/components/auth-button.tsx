@@ -8,13 +8,18 @@ export async function AuthButton() {
   if (!supabase) {
     return (
       <div className="text-sm text-amber-600">
-        Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local
+        Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY in .env.local
       </div>
     );
   }
 
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  let user: { email?: string } | null = null;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    user = data?.claims ?? null;
+  } catch {
+    // Supabase unreachable (fetch failed): show unauthenticated UI
+  }
 
   return user ? (
     <div className="flex items-center text-sm gap-4">
