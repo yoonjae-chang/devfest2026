@@ -115,26 +115,6 @@ export const backendApi = {
     });
   },
   
-  // Lyrics substitution
-  lyricsSubstitution: async (data: {
-    composition_plan_id: number;
-    lyrics: Record<string, any>;
-    run_id: string;
-    user_id?: string; // Optional, will be auto-filled if not provided
-  }) => {
-    // Auto-fill user_id if not provided
-    if (!data.user_id) {
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        throw new Error("Authentication required. Please log in.");
-      }
-      data.user_id = userId;
-    }
-    return apiRequest("/generate-music/lyrics-substitution", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  },
   
   // Generate final composition
   generateFinalComposition: async (data: {
@@ -214,7 +194,6 @@ export const backendApi = {
   generateAlbumCover: async (data: {
     title: string;
     description?: string;
-    artist_name?: string;
   }) => {
     return apiRequest<{
       cover_image_url: string;
@@ -224,6 +203,105 @@ export const backendApi = {
       method: "POST",
       body: JSON.stringify(data),
     });
+  },
+
+  // Portfolio endpoints
+  getPortfolioItems: () => 
+    apiRequest<Array<{
+      id: string;
+      user_id: string;
+      color_class: string;
+      title: string;
+      duration: number | null;
+      featured: boolean;
+      description: string;
+      lyrics: string;
+      file_name: string;
+      file_size: number;
+      file_last_modified: number;
+      storage_path: string;
+      cover_image_url: string | null;
+      created_at: string;
+    }>>("/portfolio/items"),
+
+  getPortfolioItem: (itemId: string) =>
+    apiRequest(`/portfolio/items/${itemId}`),
+
+  createPortfolioItem: async (data: {
+    id: string;
+    color_class: string;
+    title: string;
+    duration?: number | null;
+    featured?: boolean;
+    description?: string;
+    lyrics?: string;
+    file_name: string;
+    file_size: number;
+    file_last_modified: number;
+    cover_image_url?: string | null;
+  }, audioFile: File) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error("Authentication required. Please log in.");
+    
+    const formData = new FormData();
+    formData.append("audio_file", audioFile);
+    formData.append("item_json", JSON.stringify(data));
+    
+    const res = await fetch(`${API_BASE_URL}/portfolio/items`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+      body: formData,
+      credentials: "include",
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : String(err.detail));
+    }
+    
+    return res.json();
+  },
+
+  updatePortfolioItem: async (itemId: string, data: {
+    title?: string;
+    duration?: number | null;
+    featured?: boolean;
+    description?: string;
+    lyrics?: string;
+    color_class?: string;
+    cover_image_url?: string | null;
+  }) => {
+    return apiRequest(`/portfolio/items/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deletePortfolioItem: (itemId: string) =>
+    apiRequest(`/portfolio/items/${itemId}`, {
+      method: "DELETE",
+    }),
+
+  getPortfolioAudio: async (itemId: string): Promise<Blob> => {
+    const token = await getAuthToken();
+    if (!token) throw new Error("Authentication required. Please log in.");
+    
+    const res = await fetch(`${API_BASE_URL}/portfolio/items/${itemId}/audio`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : String(err.detail));
+    }
+    
+    return res.blob();
   },
 };
 

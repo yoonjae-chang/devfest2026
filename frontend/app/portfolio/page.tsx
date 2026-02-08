@@ -8,7 +8,6 @@ import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from
 import { backendApi } from "@/lib/api";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
-const ARTIST_KEY = "portfolio_artist_name";
 
 const PASTEL_COLORS = [
   "bg-sky-100",
@@ -100,7 +99,6 @@ function publishToStored(p: PublishItem): StoredPortfolioItem {
 }
 
 function PortfolioPageContent() {
-  const [artistName, setArtistName] = useState("");
   const [items, setItems] = useState<PublishItem[]>([]);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [currentTrackId, setCurrentTrackId] = useState<string | null>(null);
@@ -168,6 +166,7 @@ function PortfolioPageContent() {
   }, [refreshFromStorage]);
 
   // Persist only when user edits — never before load completes, never right after load
+  // Debounce saves to avoid too many API calls while user is typing
   useEffect(() => {
     if (!loadCompleteRef.current) return;
     if (skipNextPersistRef.current) {
@@ -175,21 +174,14 @@ function PortfolioPageContent() {
       return;
     }
     const stored = items.map(publishToStored);
-    savePortfolioItems(stored).catch(() => {});
+    // Debounce: wait 1 second after last change before saving
+    const timeoutId = setTimeout(() => {
+      savePortfolioItems(stored).catch((error) => {
+        console.error("Failed to save portfolio items:", error);
+      });
+    }, 1000);
+    return () => clearTimeout(timeoutId);
   }, [items]);
-
-  // Persist artist name
-  useEffect(() => {
-    try {
-      const a = localStorage.getItem(ARTIST_KEY);
-      if (a != null) setArtistName(a);
-    } catch (_) {}
-  }, []);
-  useEffect(() => {
-    try {
-      if (artistName !== "") localStorage.setItem(ARTIST_KEY, artistName);
-    } catch (_) {}
-  }, [artistName]);
 
   // Load duration for items that don't have it yet
   useEffect(() => {
@@ -259,7 +251,6 @@ function PortfolioPageContent() {
         const coverResponse = await backendApi.generateAlbumCover({
           title: item.title,
           description: item.description,
-          artist_name: artistName,
         });
         
         // Update the item with the cover image URL
@@ -365,17 +356,6 @@ function PortfolioPageContent() {
     <div className="min-h-screen text-white flex flex-col">
       <div className="flex-1 px-6 py-8 pb-28">
         <div className="max-w-6xl mx-auto flex flex-col h-full">
-          {/* Artist profile */}
-          <div className="mb-5 pt-2">
-            <input
-              type="text"
-              value={artistName}
-              onChange={(e) => setArtistName(e.target.value)}
-              placeholder="Your artist name"
-              className="text-2xl sm:text-3xl font-bold tracking-tight bg-transparent border-b-2 border-white/25 hover:border-white/50 focus:border-sky-300 focus:outline-none w-full max-w-md pb-2.5 pt-0.5 transition-[border-color,box-shadow] duration-200 placeholder:text-white/40 text-white drop-shadow-sm"
-            />
-          </div>
-
           {/* Section header + add */}
           <div className="flex items-center justify-between gap-4 mb-6">
             <h2 className="text-lg font-semibold text-white tracking-tight">
@@ -592,9 +572,6 @@ function PortfolioPageContent() {
                 <p className="text-sm font-semibold truncate text-white">
                   {currentTrack.title || fileNameWithoutExt(currentTrack.file.name)}
                 </p>
-                <p className="text-xs text-sky-200/90 truncate">
-                  {artistName || "Artist"}
-                </p>
               </div>
             </div>
 
@@ -697,9 +674,6 @@ function PortfolioPageContent() {
                   <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">
                     {detailItem.title || fileNameWithoutExt(detailItem.file.name)}
                   </h2>
-                  <p className="text-sky-200/90 text-lg drop-shadow-md">
-                    {artistName || "Artist"}
-                  </p>
                   {detailItem.duration != null && (
                     <p className="text-white/70 text-sm mt-1">
                       {formatDuration(detailItem.duration)}
