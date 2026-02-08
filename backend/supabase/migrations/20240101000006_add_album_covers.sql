@@ -1,8 +1,11 @@
--- Add cover_image_url field to portfolio_items table
-ALTER TABLE portfolio_items 
-ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
-
-COMMENT ON COLUMN portfolio_items.cover_image_url IS 'URL of the AI-generated album cover image stored in Supabase Storage';
+-- Add cover_image_url field to portfolio_items table (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portfolio_items') THEN
+    ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+    COMMENT ON COLUMN portfolio_items.cover_image_url IS 'URL of the AI-generated album cover image stored in Supabase Storage';
+  END IF;
+END $$;
 
 -- Storage bucket for album covers (create if not exists)
 INSERT INTO storage.buckets (id, name, public)

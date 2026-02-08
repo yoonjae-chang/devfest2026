@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 export default function RouteBackground() {
   const pathname = usePathname();
   const isPortfolio = pathname?.startsWith("/portfolio");
-  const bgImage = isPortfolio ? "url('/background-3.png')" : "url('/background.jpg')";
+  const isStudio = pathname?.startsWith("/studio");
+  const bgImage = isPortfolio
+    ? "url('/background-3.png')"
+    : isStudio
+      ? "url('/background-4.jpg')"
+      : "url('/background.jpg')";
 
   return (
     <div

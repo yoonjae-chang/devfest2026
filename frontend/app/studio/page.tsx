@@ -246,11 +246,11 @@ function StudioPageContent() {
       <main className="flex-1 flex flex-col items-center justify-center md:pt-28 pt-16 px-6 py-12">
         <div className="w-full max-w-2xl space-y-8">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+            <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-[#1e3a5f] drop-shadow-md">
               <Music2 className="w-7 h-7" />
               Studio
             </h1>
-            <p className="text-white/90 drop-shadow-sm">
+            <p className="text-[#1e3a5f]/90 drop-shadow-sm">
               Upload audio files to convert to MIDI, then edit in the editor.
             </p>
           </div>
@@ -400,11 +400,11 @@ export default function StudioPage() {
           <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
             <div className="w-full max-w-2xl space-y-8">
               <div className="text-center space-y-2">
-                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-[#1e3a5f] drop-shadow-md">
                   <Music2 className="w-7 h-7" />
                   Studio
                 </h1>
-                <p className="text-white/90 drop-shadow-sm">Loading...</p>
+                <p className="text-[#1e3a5f]/90 drop-shadow-sm">Loading...</p>
               </div>
             </div>
           </main>
