@@ -20,7 +20,8 @@ from services.prompts import (
     GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT,
     GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_USER_PROMPT,
     GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_SYSTEM_PROMPT,
-    GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_USER_PROMPT
+    GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_USER_PROMPT,
+    get_genre_lyrics_example,
 )
      
 env_path = Path("../.") / ".env.local"
@@ -52,8 +53,10 @@ async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depen
     styles_str = ", ".join(req.styles) if req.styles else "None"
     
     if req.lyrics_exists:
+        genre_example = get_genre_lyrics_example(req.styles)
+        system_prompt = GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT.replace("{GENRE_LYRICS_EXAMPLE}", genre_example)
         plan = chat_completion_json(
-            system_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             user_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_USER_PROMPT.replace("{USER_PROMPT}", req.user_prompt).replace("{STYLES}", styles_str).replace("{LYRICS_EXISTS}", str(req.lyrics_exists))
         )
     else:

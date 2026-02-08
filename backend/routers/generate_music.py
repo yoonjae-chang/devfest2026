@@ -21,7 +21,8 @@ from services.prompts import GENERATE_LYRICS_SYSTEM_PROMPT, GENERATE_LYRICS_USER
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
 
-length_ms = 4000
+# Song duration: 1 minute
+length_ms = 1 * 60 * 1000  # 60_000 ms
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")

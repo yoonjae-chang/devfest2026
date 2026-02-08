@@ -22,9 +22,8 @@ def chat_completion_json(system_prompt: str, user_prompt: str, model: str = "gpt
     try:
         print("system_prompt: ", system_prompt)
         print("user_prompt: ", user_prompt)
-        model = "gpt-4.1-nano"
         response = client.chat.completions.create(
-            model=model,  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
+            model=model,
             temperature=temperature,
             messages=[
                 {"role": "system", "content": system_prompt},
