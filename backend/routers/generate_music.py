@@ -156,7 +156,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         # Use a seed based on title to get a consistent image for the same song
         import hashlib
         seed = int(hashlib.md5(title.encode()).hexdigest()[:8], 16) % 1000
-        cover_image_url = f"https://picsum.photos/200"
+        cover_image_url = f"https://picsum.photos/id/{seed}/200"
         print(f"Using placeholder album cover: {cover_image_url}")
         
         # Convert track metadata to dict if it's a model
