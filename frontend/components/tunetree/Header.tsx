@@ -1,30 +1,52 @@
-import Link from "next/link";
-import { AuthButton } from "@/components/auth-button";
+"use client";
 
-export default function Header() {
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+
+const NAVY = "text-[#1e3a5f]";
+const NAVY_HOVER = "hover:text-[#1e3a5f]/90";
+const WHITE = "text-white";
+const WHITE_HOVER = "hover:text-white/90";
+
+type HeaderProps = {
+  children?: React.ReactNode;
+};
+
+export default function Header({ children }: HeaderProps) {
+  const pathname = usePathname();
+  const isResultsPage = pathname?.startsWith("/results");
+
+  const linkBase = "text-xl font-semibold drop-shadow-md transition-colors";
+  const linkClass = isResultsPage
+    ? `${linkBase} ${NAVY} ${NAVY_HOVER}`
+    : `${linkBase} ${WHITE} ${WHITE_HOVER}`;
+  const navClass = isResultsPage ? `ml-auto flex items-center gap-6 ${NAVY}` : "ml-auto flex items-center gap-6 text-white";
+  const navLinkClass = isResultsPage
+    ? "text-sm text-[#1e3a5f]/90 hover:text-[#1e3a5f] drop-shadow-md transition-colors"
+    : "text-sm text-white/90 hover:text-white drop-shadow-md transition-colors";
+
   return (
     <header className="bg-transparent">
-      <div className="max-w-6xl mx-auto pl-4 pr-6 py-4 flex items-center">
-        <Link
-          href="/"
-          className="text-xl font-semibold text-white drop-shadow-md hover:text-white/90 transition-colors"
-        >
+      <div className="w-full px-8 sm:px-12 py-4 flex items-center justify-between">
+        <Link href="/" className={`flex items-center gap-2 ${linkClass}`}>
+          <Image
+            src="/icon.png"
+            alt="TuneTree"
+            width={32}
+            height={32}
+            className="shrink-0"
+          />
           TuneTree
         </Link>
-        <nav className="ml-auto flex items-center gap-6 text-white" aria-label="Main navigation">
-          <Link
-            href="/portfolio"
-            className="text-sm text-white/90 hover:text-white drop-shadow-md transition-colors"
-          >
+        <nav className={navClass} aria-label="Main navigation">
+          <Link href="/portfolio" className={navLinkClass}>
             Portfolio
           </Link>
-          <Link
-            href="/studio"
-            className="text-sm text-white/90 hover:text-white drop-shadow-md transition-colors"
-          >
+          <Link href="/studio" className={navLinkClass}>
             Studio
           </Link>
-          <AuthButton />
+          {children}
         </nav>
       </div>
     </header>

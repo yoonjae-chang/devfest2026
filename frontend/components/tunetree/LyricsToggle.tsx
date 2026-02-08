@@ -28,10 +28,10 @@ export default function LyricsToggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`
-          relative inline-flex h-6 w-11 shrink-0 rounded-full border border-white-300
-          transition-colors focus:outline-none focus:ring-2 focus:ring-white-500 focus:ring-offset-2
+          relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors
+          focus:outline-none focus:ring-2 focus:ring-white-500 focus:ring-offset-2
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${checked ? "border-white" : "border-white-200"}
+          ${checked ? "bg-white border-grey-400" : "border-white-200"}
         `}
       >
         <span

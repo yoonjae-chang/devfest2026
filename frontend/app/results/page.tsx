@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LineShadowText } from "@/components/ui/line-shadow-text";
 import SongCard, { type SongData } from "@/components/tunetree/SongCard";
 import { backendApi } from "@/lib/api";
 
@@ -397,7 +396,7 @@ function ResultsPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+      <div className="flex-1 flex items-center justify-center min-h-screen text-[#1e3a5f]">
         <div className="text-center">
           <p className="text-lg">Loading compositions...</p>
         </div>
@@ -407,7 +406,7 @@ function ResultsPageContent() {
 
   if (error && !songA && !songB) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+      <div className="flex-1 flex items-center justify-center min-h-screen text-[#1e3a5f]">
         <div className="text-center space-y-4">
           <p className="text-lg text-red-600">{error}</p>
           <button
@@ -423,7 +422,7 @@ function ResultsPageContent() {
 
   if (!songA || !songB) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+      <div className="flex-1 flex items-center justify-center min-h-screen text-[#1e3a5f]">
         <div className="text-center">
           <p className="text-lg">Preparing compositions...</p>
         </div>
@@ -432,26 +431,19 @@ function ResultsPageContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 text-black overflow-hidden">
-      <main className="flex-1 flex flex-col items-center min-h-0 py-10 px-6">
-        <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 gap-10">
+    <div className="flex-1 flex flex-col min-h-0 max-h-[calc(100vh-4rem)] text-[#1e3a5f] overflow-hidden">
+      <main className="flex-1 flex flex-col items-center min-h-0 pt-3 pb-6 px-4 overflow-hidden">
+        <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 gap-3 overflow-hidden">
           
           {/* Header */}
-          <div className="text-center space-y-4 shrink-0">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-balance">
-              Choose a{" "}
-              <LineShadowText shadowColor="black" className="italic">
-                version
-              </LineShadowText>
+          <div className="text-center space-y-1 shrink-0 mb-3">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-balance text-[#1e3a5f]">
+              Choose a version
             </h1>
 
-            <p className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto">
+            <p className="text-[#1e3a5f]/90 text-sm max-w-2xl mx-auto">
               Pick the version you like. We’ll regenerate the other based on your edits.
             </p>
-
-            <div className="h-0.5 w-20 bg-black/70 mx-auto rounded-full" />
-
-
           </div>
 
           {error && (
@@ -460,74 +452,85 @@ function ResultsPageContent() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden">
             <div 
-              className={`relative flex flex-col transition-all ${
+              className={`relative flex flex-col min-h-0 transition-all ${
                 selectedVersion === "A" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
               }`}
             >
-              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
-              <div className="mt-4 space-y-2">
-                <button
-                  onClick={() => handleGenerateMusic("A")}
-                  disabled={isGeneratingMusicA || !compositionAId}
-                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGeneratingMusicA ? "Generating Music..." : "Generate Music"}
-                </button>
-                {generatedMusicA && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
-                    <audio controls className="w-full">
-                      <source src={`/api/music/${generatedMusicA.audio_filename}`} type="audio/mpeg" />
-                      Your browser does not support the audio element.
-                    </audio>
-                  </div>
-                )}
-              </div>
+              <SongCard
+                song={songA}
+                onChange={setSongA}
+                variantLabel="Version A"
+                glass
+                footer={
+                  <>
+                    <button
+                      onClick={() => handleSelectVersion("A")}
+                      disabled={isProcessing || selectedVersion !== null}
+                      className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? "Processing..." : "Select Version"}
+                    </button>
+                    <button
+                      onClick={() => handleGenerateMusic("A")}
+                      disabled={isGeneratingMusicA || !compositionAId}
+                      className="w-full py-2.5 px-4 text-sm font-medium text-navy-600 bg-blue-200 rounded-lg hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingMusicA ? "Generating..." : "Continue to Editor"}
+                    </button>
+                    {generatedMusicA && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
+                        <audio controls className="w-full">
+                          <source src={`/api/music/${generatedMusicA.audio_filename}`} type="audio/mpeg" />
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
+                    )}
+                  </>
+                }
+              />
             </div>
             <div 
-              className={`relative flex flex-col transition-all ${
+              className={`relative flex flex-col min-h-0 transition-all ${
                 selectedVersion === "B" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
               }`}
             >
-              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
-              <div className="mt-4 space-y-2">
-                <button
-                  onClick={() => handleGenerateMusic("B")}
-                  disabled={isGeneratingMusicB || !compositionBId}
-                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGeneratingMusicB ? "Generating Music..." : "Generate Music"}
-                </button>
-                {generatedMusicB && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
-                    <audio controls className="w-full">
-                      <source src={`/api/music/${generatedMusicB.audio_filename}`} type="audio/mpeg" />
-                      Your browser does not support the audio element.
-                    </audio>
-                  </div>
-                )}
-              </div>
+              <SongCard
+                song={songB}
+                onChange={setSongB}
+                variantLabel="Version B"
+                glass
+                footer={
+                  <>
+                    <button
+                      onClick={() => handleSelectVersion("B")}
+                      disabled={isProcessing || selectedVersion !== null}
+                      className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? "Processing..." : "Select Version"}
+                    </button>
+                    <button
+                      onClick={() => handleGenerateMusic("B")}
+                      disabled={isGeneratingMusicB || !compositionBId}
+                      className="w-full py-2.5 px-4 text-sm font-medium text-navy-600 bg-blue-200 rounded-lg hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingMusicB ? "Generating..." : "Continue to Editor"}
+                    </button>
+                    {generatedMusicB && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
+                        <audio controls className="w-full">
+                          <source src={`/api/music/${generatedMusicB.audio_filename}`} type="audio/mpeg" />
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
+                    )}
+                  </>
+                }
+              />
             </div>
-          </div>
-          
-          <div className="flex justify-center gap-4 shrink-0">
-            <button
-              onClick={() => handleSelectVersion("A")}
-              disabled={isProcessing || selectedVersion !== null}
-              className="px-6 py-3 text-base font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? "Processing..." : "Select Version A"}
-            </button>
-            <button
-              onClick={() => handleSelectVersion("B")}
-              disabled={isProcessing || selectedVersion !== null}
-              className="px-6 py-3 text-base font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? "Processing..." : "Select Version B"}
-            </button>
           </div>
         </div>
       </main>
@@ -537,16 +540,23 @@ function ResultsPageContent() {
 
 export default function ResultsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
-          <div className="text-center">
-            <p className="text-lg">Loading compositions...</p>
+    <>
+      {/* Full-bleed background for results page */}
+      <div
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-gray-900"
+        style={{ backgroundImage: "url('/background-2.jpg')" }}
+      />
+      <Suspense
+        fallback={
+          <div className="flex-1 flex items-center justify-center min-h-screen text-[#1e3a5f]">
+            <div className="text-center">
+              <p className="text-lg">Loading compositions...</p>
+            </div>
           </div>
-        </div>
-      }
-    >
-      <ResultsPageContent />
-    </Suspense>
+        }
+      >
+        <ResultsPageContent />
+      </Suspense>
+    </>
   );
 }

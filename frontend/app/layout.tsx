@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Header from "@/components/tunetree/Header";
+import { AuthButton } from "@/components/auth-button";
 import "./globals.css";
 
 function HeaderFallback() {
@@ -24,6 +25,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "TuneTree – Make any song you can imagine",
   description: "Describe your idea and let TuneTree generate music.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 const geistSans = Geist({
@@ -53,7 +57,9 @@ export default function RootLayout({
           />
           <div className="relative flex flex-col min-h-screen">
             <Suspense fallback={<HeaderFallback />}>
-              <Header />
+              <Header>
+                <AuthButton />
+              </Header>
             </Suspense>
             <div className="flex-1 flex flex-col min-h-0">
               {children}

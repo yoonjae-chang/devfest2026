@@ -155,6 +155,30 @@ export const backendApi = {
       body: JSON.stringify(data),
     });
   },
+  
+  // Update composition plan
+  updateCompositionPlan: async (data: {
+    composition_id: number;
+    composition_plan: Record<string, any>;
+    user_id?: string; // Optional, will be auto-filled if not provided
+  }) => {
+    // Auto-fill user_id if not provided
+    if (!data.user_id) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Authentication required. Please log in.");
+      }
+      data.user_id = userId;
+    }
+    return apiRequest(`/generate/composition-plan/${data.composition_id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        composition_plan: data.composition_plan,
+        user_id: data.user_id,
+      }),
+    });
+  },
+  
   // Convert MP3/audio to MIDI via Next.js API proxy
   convertMp3ToMidi,
 
