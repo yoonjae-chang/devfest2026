@@ -190,6 +190,37 @@ function StudioPageContent() {
       sessionStorage.setItem("midi_editor_name", allFiles[0].name);
       setConvertedCount(allFiles.length);
       setStatus("success");
+
+      // Auto-download: single .mid file or zip of multiple
+      if (allFiles.length === 1) {
+        const { name, data } = allFiles[0];
+        const binary = atob(data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/midi" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name.endsWith(".mid") ? name : `${name}.mid`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+        for (const { name, data } of allFiles) {
+          const binary = atob(data);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          zip.file(name.endsWith(".mid") ? name : `${name}.mid`, bytes, { binary: true });
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "studio-midi-tracks.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
       setStatus("error");
@@ -331,7 +362,7 @@ function StudioPageContent() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center items-center mt-36 w-full">
             <Button
               onClick={handleDownloadMp3}
               disabled={files.length === 0}
@@ -343,7 +374,10 @@ function StudioPageContent() {
             </Button>
             {status === "success" ? (
               <Link href="/editor">
-                <Button className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800">
+                <Button
+                  variant="outline"
+                  className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900"
+                >
                   Go to editor
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -352,7 +386,8 @@ function StudioPageContent() {
               <Button
                 onClick={handleConvert}
                 disabled={files.length === 0 || status === "converting"}
-                className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800 disabled:opacity-50"
+                variant="outline"
+                className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900 disabled:opacity-50"
               >
                 {status === "converting" ? (
                   <>
@@ -360,7 +395,10 @@ function StudioPageContent() {
                     Converting…
                   </>
                 ) : (
-                  "Convert to MIDI"
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Convert to MIDI
+                  </>
                 )}
               </Button>
             )}
