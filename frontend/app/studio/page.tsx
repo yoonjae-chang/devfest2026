@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Music2, Loader2, Plus, X, Download, Upload, ArrowRight } from "lucide-react";
 import { backendApi } from "@/lib/api";
 import { appendPortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
+import { displayNameFromFilename } from "@/lib/utils";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const MAX_FILES = 10;
@@ -19,10 +20,6 @@ const PASTEL_COLORS = [
 function filterValidFiles(fileList: FileList | File[]): File[] {
   const arr = Array.from(fileList);
   return arr.filter((f) => AUDIO_EXT.test(f.name));
-}
-
-function fileNameWithoutExt(name: string): string {
-  return name.replace(/\.[^.]+$/, "");
 }
 
 function StudioPageContent() {
@@ -241,7 +238,7 @@ function StudioPageContent() {
         newItems.push({
           id: `${file.name}-${file.size}-${file.lastModified}-${timestamp}-${i}`,
           colorClass: PASTEL_COLORS[i % PASTEL_COLORS.length],
-          title: fileNameWithoutExt(file.name),
+          title: displayNameFromFilename(file.name),
           duration: null,
           featured: false,
           description: "",
