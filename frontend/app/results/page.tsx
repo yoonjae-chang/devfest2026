@@ -1,28 +1,266 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LineShadowText } from "@/components/ui/line-shadow-text";
 import SongCard, { type SongData } from "@/components/tunetree/SongCard";
+import { backendApi } from "@/lib/api";
 
-const MOCK_SONG_A: SongData = {
-  title: "Summer Drive",
-  lyrics:
-    "Windows down and the radio on\nWe're leaving the city before the break of dawn\n\nChorus:\nTake me where the highway runs\nUnderneath the morning sun",
-  positiveStyles: "upbeat, melodic, pop, driving",
-  negativeStyles: "dark, slow",
+type CompositionPlan = {
+  title?: string;
+  positiveGlobalStyles?: string[];
+  negativeGlobalStyles?: string[];
+  description?: string;
+  lyrics?: Record<string, string | { lines: string[] }>;
 };
 
-const MOCK_SONG_B: SongData = {
-  title: "Open Road",
-  lyrics:
-    "Just you and me and the open road\nNo map, no plan, just the way we go\n\nChorus:\nEvery mile is a memory\nEvery turn sets us free",
-  positiveStyles: "indie, acoustic, warm",
-  negativeStyles: "electronic, aggressive",
+type CompositionPlanResponse = {
+  id: number;
+  composition_plan: CompositionPlan;
+  user_id: string;
+  run_id: string;
+  user_prompt?: string;
+  user_styles?: string[];
+  lyrics_exists?: boolean;
+  better_than_id?: number | null;
+  created_at?: string;
 };
 
-export default function ResultsPage() {
-  const [songA, setSongA] = useState<SongData>(MOCK_SONG_A);
-  const [songB, setSongB] = useState<SongData>(MOCK_SONG_B);
+// Convert composition plan to SongData format
+function compositionPlanToSongData(
+  plan: CompositionPlan,
+  description?: string
+): SongData {
+  // Extract lyrics
+  let lyricsText = "";
+  if (plan.lyrics) {
+    const lyricsArray: string[] = [];
+  
+    for (const [sectionName, sectionContent] of Object.entries(plan.lyrics)) {
+      // If the section is an array (like your JSON), join the lines
+      if (Array.isArray(sectionContent)) {
+        lyricsArray.push(`${sectionName}:\n${sectionContent.join("\n")}`);
+      } 
+      // Fallback for strings
+      else if (typeof sectionContent === "string") {
+        lyricsArray.push(`${sectionName}:\n${sectionContent}`);
+      }
+    }
+  
+    lyricsText = lyricsArray.join("\n\n");
+  }
+
+  // Use title from plan, fallback to description, then default
+  const title = plan.title || description || plan.description?.substring(0, 50) || "Generated Song";
+
+  return {
+    title: title,
+    description: plan.description || description || "No description provided",
+    lyrics: lyricsText || "No lyrics provided",
+    positiveStyles: plan.positiveGlobalStyles?.join(", ") || "",
+    negativeStyles: plan.negativeGlobalStyles?.join(", ") || "",
+  };
+}
+
+function ResultsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [songA, setSongA] = useState<SongData | null>(null);
+  const [songB, setSongB] = useState<SongData | null>(null);
+  const [compositionAId, setCompositionAId] = useState<number | null>(null);
+  const [compositionBId, setCompositionBId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const loadCompositions = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Get run_id from URL params
+        const runIdParam = searchParams.get("run_id");
+
+        if (!runIdParam) {
+          setError("No run_id provided. Please generate a new composition.");
+          setIsLoading(false);
+          return;
+        }
+
+        setRunId(runIdParam);
+
+        // Fetch all composition plans for this run
+        const plans = await backendApi.getCompositionPlansByRun(runIdParam) as CompositionPlanResponse[];
+
+        console.log(plans);
+        if (!plans || plans.length === 0) {
+          setError("No composition plans found for this run. Please generate a new one.");
+          setIsLoading(false);
+          return;
+        }
+
+        // Filter out plans that have a better_than_id (these are improved versions from comparisons)
+        // We want to show the two most recent base plans for comparison
+        const basePlans = plans.filter(plan => !plan.better_than_id);
+        
+        // Get the two most recent base plans (by created_at or by order in array)
+        // Since they're ordered by created_at ascending, take the last two
+        const plansToShow = basePlans.length >= 2 
+          ? basePlans.slice(-2)  // Last two base plans
+          : basePlans;  // Or all if less than 2
+
+        if (plansToShow.length >= 2) {
+          // We have 2 plans to compare
+          const planA = plansToShow[plansToShow.length - 2];  // Second to last
+          const planB = plansToShow[plansToShow.length - 1];  // Last
+          
+          setCompositionAId(planA.id);
+          setCompositionBId(planB.id);
+          
+          const songDataA = compositionPlanToSongData(planA.composition_plan);
+          const songDataB = compositionPlanToSongData(planB.composition_plan);
+          
+          setSongA(songDataA);
+          setSongB(songDataB);
+        } else if (plansToShow.length === 1) {
+          // Only one base plan, this shouldn't happen if generation worked correctly
+          // But handle it gracefully - generate a second one
+          const planA = plansToShow[0];
+          setCompositionAId(planA.id);
+          
+          const songDataA = compositionPlanToSongData(planA.composition_plan);
+          setSongA(songDataA);
+          
+          // Generate second version as fallback
+          await generateSecondVersion(planA);
+        } else {
+          setError("No valid composition plans found. Please generate a new one.");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load compositions");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCompositions();
+  }, [searchParams]);
+
+  const generateSecondVersion = async (firstPlan: CompositionPlanResponse) => {
+    try {
+      // Get original generation parameters from sessionStorage
+      const paramsStr = sessionStorage.getItem("generationParams");
+      
+      if (!paramsStr) {
+        throw new Error("Missing generation parameters");
+      }
+
+      const params = JSON.parse(paramsStr);
+      
+      // Generate second version with the same parameters
+      const response = await backendApi.generateCompositionPlan({
+        user_prompt: params.user_prompt,
+        styles: params.styles,
+        lyrics_exists: params.lyrics_exists,
+        run_id: firstPlan.run_id,
+      }) as CompositionPlanResponse;
+
+      setCompositionBId(response.id);
+      const songDataB = compositionPlanToSongData(response.composition_plan);
+      setSongB(songDataB);
+    } catch (err) {
+      console.error("Error generating second version:", err);
+      setError(`Failed to generate second version: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleSelectVersion = async (version: "A" | "B") => {
+    if (!compositionAId || !compositionBId || !runId) {
+      setError("Missing composition IDs. Please try again.");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // Determine which is better based on selection
+      const composition_plan_1_better = version === "A";
+      
+      // Get the better plan ID (this one stays)
+      const betterPlanId = composition_plan_1_better ? compositionAId : compositionBId;
+      const worsePlanId = composition_plan_1_better ? compositionBId : compositionAId;
+      
+      // Call compare compositions API - this generates a new improved composition
+      // (The improved composition is saved but we don't use it in the comparison flow)
+      await backendApi.compareCompositions({
+        composition_plan_1_id: compositionAId,
+        composition_plan_2_id: compositionBId,
+        composition_plan_1_better,
+        run_id: runId,
+      });
+
+      // Generate a new composition plan with the same parameters to replace the worse one
+      const paramsStr = sessionStorage.getItem("generationParams");
+      if (!paramsStr) {
+        throw new Error("Missing generation parameters");
+      }
+      const params = JSON.parse(paramsStr);
+      
+      await backendApi.generateCompositionPlan({
+        user_prompt: params.user_prompt,
+        styles: params.styles,
+        lyrics_exists: params.lyrics_exists,
+        run_id: runId,
+      });
+
+      // Reload the page to show the better plan and the new plan
+      router.push(`/results?run_id=${runId}`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process selection");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+        <div className="text-center">
+          <p className="text-lg">Loading compositions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !songA && !songB) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+        <div className="text-center space-y-4">
+          <p className="text-lg text-red-600">{error}</p>
+          <button
+            onClick={() => router.push("/")}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+          >
+            Go Back to Generate
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!songA || !songB) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+        <div className="text-center">
+          <p className="text-lg">Preparing compositions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-slate-50 text-black overflow-hidden">
@@ -47,28 +285,56 @@ export default function ResultsPage() {
 
           </div>
 
-          {/* Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 min-h-0">
-            <div className="relative group transition-transform duration-300 hover:-translate-y-1">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-emerald-300/40 to-lime-300/40 blur opacity-0 group-hover:opacity-100 transition" />
-              <SongCard
-                song={songA}
-                onChange={setSongA}
-                variantLabel="Version A"
-              />
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm">{error}</p>
             </div>
+          )}
 
-            <div className="relative group transition-transform duration-300 hover:-translate-y-1">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-amber-300/40 to-orange-300/40 blur opacity-0 group-hover:opacity-100 transition" />
-              <SongCard
-                song={songB}
-                onChange={setSongB}
-                variantLabel="Version B"
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 flex-1 min-h-0">
+            <div className="relative flex flex-col">
+              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
+              <div className="mt-4">
+                <button
+                  onClick={() => handleSelectVersion("A")}
+                  disabled={isProcessing}
+                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? "Processing..." : "Select Version A"}
+                </button>
+              </div>
+            </div>
+            <div className="relative flex flex-col">
+              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
+              <div className="mt-4">
+                <button
+                  onClick={() => handleSelectVersion("B")}
+                  disabled={isProcessing}
+                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? "Processing..." : "Select Version B"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center min-h-screen bg-white text-gray-900">
+          <div className="text-center">
+            <p className="text-lg">Loading compositions...</p>
+          </div>
+        </div>
+      }
+    >
+      <ResultsPageContent />
+    </Suspense>
   );
 }

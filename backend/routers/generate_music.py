@@ -154,3 +154,33 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating final composition: {str(e)}")
+
+
+@generate_music_router.get("/final-composition/{composition_plan_id}")
+async def get_final_composition(composition_plan_id: int, user: dict = Depends(get_current_user)):
+    """Get final composition by composition_plan_id. Only returns if it belongs to the authenticated user."""
+    try:
+        response = supabase.table("final_compositions").select("*").eq("composition_plan_id", composition_plan_id).eq("user_id", user["user_id"]).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Final composition not found")
+        
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching final composition: {str(e)}")
+
+
+@generate_music_router.get("/final-compositions/run/{run_id}")
+async def get_final_compositions_by_run(run_id: str, user: dict = Depends(get_current_user)):
+    """Get all final compositions for a specific run_id. Only returns compositions belonging to the authenticated user."""
+    try:
+        response = supabase.table("final_compositions").select("*").eq("run_id", run_id).eq("user_id", user["user_id"]).order("created_at").execute()
+        
+        if not response.data:
+            return []
+        
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching final compositions: {str(e)}")

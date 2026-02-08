@@ -39,20 +39,34 @@ export default function Home() {
       // Generate a unique run ID for this generation session
       const runId = generateRunId();
 
-      // Call the API to generate composition plan
-      const response = await backendApi.generateCompositionPlan({
+      // Store generation parameters for later use
+      const generationParams = {
         user_prompt: prompt.trim(),
         styles: styles,
         lyrics_exists: includeLyrics,
-        run_id: runId,
-      }) as { id: number; composition_plan: any; user_id: string; run_id: string };
+      };
+      sessionStorage.setItem("generationParams", JSON.stringify(generationParams));
 
-      // Navigate to results page with the generated composition plan
-      // Store the response in sessionStorage or pass via query params
-      sessionStorage.setItem("lastCompositionPlan", JSON.stringify(response));
-      router.push(`/results?run_id=${runId}&composition_id=${response.id}`);
+      // Generate TWO composition plans with the same run_id
+      const [plan1, plan2] = await Promise.all([
+        backendApi.generateCompositionPlan({
+          user_prompt: prompt.trim(),
+          styles: styles,
+          lyrics_exists: includeLyrics,
+          run_id: runId,
+        }) as Promise<{ id: number; composition_plan: any; user_id: string; run_id: string }>,
+        backendApi.generateCompositionPlan({
+          user_prompt: prompt.trim(),
+          styles: styles,
+          lyrics_exists: includeLyrics,
+          run_id: runId,
+        }) as Promise<{ id: number; composition_plan: any; user_id: string; run_id: string }>,
+      ]);
+
+      // Navigate to results page with both composition plans
+      router.push(`/results?run_id=${runId}`);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to generate composition plan. Please try again.";
+      const errorMessage = err instanceof Error ? err.message : "Failed to generate composition plans. Please try again.";
       setError(errorMessage);
       
       // If authentication error, redirect to login

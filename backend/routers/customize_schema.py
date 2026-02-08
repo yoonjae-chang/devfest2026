@@ -45,40 +45,71 @@ async def compare_compositions(req: ComparingComposition, user: dict = Depends(g
     
     # Fetch both composition plans from Supabase
     try:
-        better_response = supabase.table("composition_plans").select("composition_plan").eq("id", better_id).execute()
+        better_response = supabase.table("composition_plans").select("*").eq("id", better_id).execute()
         worse_response = supabase.table("composition_plans").select("composition_plan").eq("id", worse_id).execute()
         
         if not better_response.data or not worse_response.data:
             raise HTTPException(status_code=404, detail="One or both composition plans not found")
         
-        composition_plan_better = better_response.data[0]["composition_plan"]
+        better_plan_data = better_response.data[0]
+        composition_plan_better = better_plan_data["composition_plan"]
         composition_plan_worse = worse_response.data[0]["composition_plan"]
+        
+        # Copy user_prompt, user_styles, and lyrics_exists from the better plan
+        user_prompt = better_plan_data.get("user_prompt")
+        user_styles = better_plan_data.get("user_styles", [])
+        lyrics_exists = better_plan_data.get("lyrics_exists", False)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching composition plans: {str(e)}")
 
     # Generate a new improved composition plan based on the comparison
-    new_composition_plan = chat_completion_json(
-        system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
+    if lyrics_exists:
+        new_composition_plan = chat_completion_json(
+            system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
 
 The new composition plan should be a JSON object with the following fields:
+- title: title of the composition
 - positiveGlobalStyles: list of styles that are positive for the composition
 - negativeGlobalStyles: list of styles that are negative for the composition
 - description: description of the composition
-- lyrics: (if present in either plan) lyrics in order of sections with sectionName and lines
+- lyrics: lyrics in the same order as the better composition plan
 
 Analyze what makes the better composition plan superior and incorporate those elements while also learning from the worse plan to avoid its weaknesses. Create a composition plan that is better than both.""",
-        user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
-    )
-    
+            user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
+        )
+    else:
+        new_composition_plan = chat_completion_json(
+            system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
+
+The new composition plan should be a JSON object with the following fields:
+- title: title of the composition
+- positiveGlobalStyles: list of styles that are positive for the composition
+- negativeGlobalStyles: list of styles that are negative for the composition
+- description: description of the composition
+
+Analyze what makes the better composition plan superior and incorporate those elements while also learning from the worse plan to avoid its weaknesses. Create a composition plan that is better than both.""",
+            user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
+        )
     # Save the new composition plan to Supabase
+    # Copy user_prompt, user_styles, lyrics_exists is False, and lyrics_exists from the better plan
     saved_id = None
     try:
-        response = supabase.table("composition_plans").insert({
+        insert_data = {
             "user_id": req.user_id,
             "run_id": req.run_id,
             "composition_plan": new_composition_plan,
             "better_than_id": worse_id,  # Reference to the worse composition it's improving upon
-        }).execute()
+        }
+        
+        # Copy fields from the better plan if they exist
+        if user_prompt is not None:
+            insert_data["user_prompt"] = user_prompt
+        if user_styles is not None:
+            insert_data["user_styles"] = user_styles
+        if lyrics_exists is not None:
+            insert_data["lyrics_exists"] = lyrics_exists
+        
+        response = supabase.table("composition_plans").insert(insert_data).execute()
         saved_id = response.data[0]["id"] if response.data else None
     except Exception as e:
         print(f"Error saving to Supabase: {e}")
