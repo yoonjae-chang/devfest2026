@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LineShadowText } from "@/components/ui/line-shadow-text";
 import SongCard, { type SongData } from "@/components/tunetree/SongCard";
@@ -62,6 +62,45 @@ function compositionPlanToSongData(
   };
 }
 
+// Convert SongData back to CompositionPlan format
+function songDataToCompositionPlan(songData: SongData, originalPlan?: CompositionPlan): CompositionPlan {
+  // Parse lyrics back into sections
+  let lyrics: Record<string, string> = {};
+  if (songData.lyrics && songData.lyrics !== "No lyrics provided") {
+    const sections = songData.lyrics.split("\n\n");
+    for (const section of sections) {
+      const lines = section.split("\n");
+      if (lines.length > 0) {
+        const sectionName = lines[0].replace(":", "");
+        const sectionContent = lines.slice(1).join("\n");
+        if (sectionName && sectionContent) {
+          lyrics[sectionName] = sectionContent;
+        }
+      }
+    }
+  } else if (originalPlan?.lyrics) {
+    // Preserve original lyrics structure if no lyrics provided
+    lyrics = originalPlan.lyrics as Record<string, string>;
+  }
+
+  // Parse styles
+  const positiveGlobalStyles = songData.positiveStyles
+    ? songData.positiveStyles.split(",").map(s => s.trim()).filter(s => s.length > 0)
+    : originalPlan?.positiveGlobalStyles || [];
+  
+  const negativeGlobalStyles = songData.negativeStyles
+    ? songData.negativeStyles.split(",").map(s => s.trim()).filter(s => s.length > 0)
+    : originalPlan?.negativeGlobalStyles || [];
+
+  return {
+    title: songData.title,
+    description: songData.description,
+    positiveGlobalStyles,
+    negativeGlobalStyles,
+    lyrics: Object.keys(lyrics).length > 0 ? lyrics : originalPlan?.lyrics,
+  };
+}
+
 function ResultsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,6 +113,14 @@ function ResultsPageContent() {
   const [runId, setRunId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<"A" | "B" | null>(null);
+  const [originalPlanA, setOriginalPlanA] = useState<CompositionPlan | null>(null);
+  const [originalPlanB, setOriginalPlanB] = useState<CompositionPlan | null>(null);
+  const saveTimeoutRefA = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRefB = useRef<NodeJS.Timeout | null>(null);
+  const [isGeneratingMusicA, setIsGeneratingMusicA] = useState(false);
+  const [isGeneratingMusicB, setIsGeneratingMusicB] = useState(false);
+  const [generatedMusicA, setGeneratedMusicA] = useState<{ audio_path: string; audio_filename: string } | null>(null);
+  const [generatedMusicB, setGeneratedMusicB] = useState<{ audio_path: string; audio_filename: string } | null>(null);
 
   useEffect(() => {
     const loadCompositions = async () => {
@@ -120,6 +167,9 @@ function ResultsPageContent() {
           setCompositionAId(planA.id);
           setCompositionBId(planB.id);
           
+          setOriginalPlanA(planA.composition_plan);
+          setOriginalPlanB(planB.composition_plan);
+          
           const songDataA = compositionPlanToSongData(planA.composition_plan);
           const songDataB = compositionPlanToSongData(planB.composition_plan);
           
@@ -130,6 +180,8 @@ function ResultsPageContent() {
           // But handle it gracefully - generate a second one
           const planA = plansToShow[0];
           setCompositionAId(planA.id);
+          
+          setOriginalPlanA(planA.composition_plan);
           
           const songDataA = compositionPlanToSongData(planA.composition_plan);
           setSongA(songDataA);
@@ -148,6 +200,118 @@ function ResultsPageContent() {
 
     loadCompositions();
   }, [searchParams]);
+
+  // Save changes to composition A with debouncing
+  useEffect(() => {
+    if (!songA || !compositionAId || !originalPlanA) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRefA.current) {
+      clearTimeout(saveTimeoutRefA.current);
+    }
+
+    // Set new timeout to save after 1 second of no changes
+    saveTimeoutRefA.current = setTimeout(async () => {
+      try {
+        const currentOriginalPlan = originalPlanA; // Capture current value
+        const updatedPlan = songDataToCompositionPlan(songA, currentOriginalPlan);
+        await backendApi.updateCompositionPlan({
+          composition_id: compositionAId,
+          composition_plan: updatedPlan,
+        });
+        // Update original plan to reflect saved state
+        setOriginalPlanA(updatedPlan);
+      } catch (err) {
+        console.error("Error saving composition A:", err);
+        // Don't show error to user for auto-save failures
+      }
+    }, 1000);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRefA.current) {
+        clearTimeout(saveTimeoutRefA.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songA, compositionAId]);
+
+  // Save changes to composition B with debouncing
+  useEffect(() => {
+    if (!songB || !compositionBId || !originalPlanB) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRefB.current) {
+      clearTimeout(saveTimeoutRefB.current);
+    }
+
+    // Set new timeout to save after 1 second of no changes
+    saveTimeoutRefB.current = setTimeout(async () => {
+      try {
+        const currentOriginalPlan = originalPlanB; // Capture current value
+        const updatedPlan = songDataToCompositionPlan(songB, currentOriginalPlan);
+        await backendApi.updateCompositionPlan({
+          composition_id: compositionBId,
+          composition_plan: updatedPlan,
+        });
+        // Update original plan to reflect saved state
+        setOriginalPlanB(updatedPlan);
+      } catch (err) {
+        console.error("Error saving composition B:", err);
+        // Don't show error to user for auto-save failures
+      }
+    }, 1000);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRefB.current) {
+        clearTimeout(saveTimeoutRefB.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songB, compositionBId]);
+
+  const handleGenerateMusic = async (version: "A" | "B") => {
+    const compositionId = version === "A" ? compositionAId : compositionBId;
+    if (!compositionId || !runId) {
+      setError("Missing composition ID or run ID. Please try again.");
+      return;
+    }
+
+    try {
+      if (version === "A") {
+        setIsGeneratingMusicA(true);
+      } else {
+        setIsGeneratingMusicB(true);
+      }
+      setError(null);
+
+      const result = await backendApi.generateFinalComposition({
+        composition_plan_id: compositionId,
+        run_id: runId,
+      }) as { audio_path: string; audio_filename: string; id: number };
+
+      if (version === "A") {
+        setGeneratedMusicA({
+          audio_path: result.audio_path,
+          audio_filename: result.audio_filename,
+        });
+      } else {
+        setGeneratedMusicB({
+          audio_path: result.audio_path,
+          audio_filename: result.audio_filename,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate music");
+    } finally {
+      if (version === "A") {
+        setIsGeneratingMusicA(false);
+      } else {
+        setIsGeneratingMusicB(false);
+      }
+    }
+  };
 
   const generateSecondVersion = async (firstPlan: CompositionPlanResponse) => {
     try {
@@ -169,6 +333,7 @@ function ResultsPageContent() {
       }) as CompositionPlanResponse;
 
       setCompositionBId(response.id);
+      setOriginalPlanB(response.composition_plan);
       const songDataB = compositionPlanToSongData(response.composition_plan);
       setSongB(songDataB);
     } catch (err) {
@@ -209,11 +374,13 @@ function ResultsPageContent() {
       if (version === "A") {
         // Keep A, replace B with improved version
         setCompositionBId(improvedComposition.id);
+        setOriginalPlanB(improvedComposition.composition_plan);
         const songDataB = compositionPlanToSongData(improvedComposition.composition_plan);
         setSongB(songDataB);
       } else {
         // Keep B, replace A with improved version
         setCompositionAId(improvedComposition.id);
+        setOriginalPlanA(improvedComposition.composition_plan);
         const songDataA = compositionPlanToSongData(improvedComposition.composition_plan);
         setSongA(songDataA);
       }
@@ -300,6 +467,24 @@ function ResultsPageContent() {
               }`}
             >
               <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => handleGenerateMusic("A")}
+                  disabled={isGeneratingMusicA || !compositionAId}
+                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingMusicA ? "Generating Music..." : "Generate Music"}
+                </button>
+                {generatedMusicA && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
+                    <audio controls className="w-full">
+                      <source src={`/api/music/${generatedMusicA.audio_filename}`} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                )}
+              </div>
             </div>
             <div 
               className={`relative flex flex-col transition-all ${
@@ -307,6 +492,24 @@ function ResultsPageContent() {
               }`}
             >
               <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => handleGenerateMusic("B")}
+                  disabled={isGeneratingMusicB || !compositionBId}
+                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingMusicB ? "Generating Music..." : "Generate Music"}
+                </button>
+                {generatedMusicB && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800 mb-2">Music generated successfully!</p>
+                    <audio controls className="w-full">
+                      <source src={`/api/music/${generatedMusicB.audio_filename}`} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           

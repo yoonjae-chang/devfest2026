@@ -135,3 +135,37 @@ async def get_composition_plans_by_run(run_id: str, user: dict = Depends(get_cur
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching composition plans: {str(e)}")
+
+
+class UpdateCompositionPlan(BaseModel):
+    composition_plan: dict  # The updated composition plan JSON
+    user_id: str
+
+
+@generate_router.put("/composition-plan/{composition_id}")
+async def update_composition_plan(composition_id: int, req: UpdateCompositionPlan, user: dict = Depends(get_current_user)):
+    """Update a composition plan by ID. Only allows updates if it belongs to the authenticated user."""
+    # Verify that the user_id in the request matches the authenticated user
+    if req.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
+    
+    try:
+        # First verify the composition plan exists and belongs to the user
+        check_response = supabase.table("composition_plans").select("id").eq("id", composition_id).eq("user_id", user["user_id"]).execute()
+        
+        if not check_response.data:
+            raise HTTPException(status_code=404, detail="Composition plan not found or access denied")
+        
+        # Update the composition plan
+        response = supabase.table("composition_plans").update({
+            "composition_plan": req.composition_plan
+        }).eq("id", composition_id).eq("user_id", user["user_id"]).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Composition plan not found")
+        
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating composition plan: {str(e)}")
