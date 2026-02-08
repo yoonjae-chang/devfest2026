@@ -288,14 +288,14 @@ function ResultsPageContent() {
                 selectedVersion === "A" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
               }`}
             >
-              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" hideSelectButton={true} />
+              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
             </div>
             <div 
               className={`relative flex flex-col transition-all ${
                 selectedVersion === "B" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
               }`}
             >
-              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" hideSelectButton={true} />
+              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
             </div>
           </div>
           
