@@ -3,6 +3,7 @@ Customize a composition plan by pairwise comparison of compositions.
 """
 
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
@@ -12,6 +13,13 @@ from supabase import create_client, Client
 from services.chatCompletion import chat_completion_json
 from services.auth import get_current_user
 
+
+from services.prompts import (
+    GENERATE_IMPROVED_SCHEMA_WITH_LYRICS_SYSTEM_PROMPT,
+    GENERATE_IMPROVED_SCHEMA_WITH_LYRICS_USER_PROMPT,
+    GENERATE_IMPROVED_SCHEMA_WITHOUT_LYRICS_SYSTEM_PROMPT,
+    GENERATE_IMPROVED_SCHEMA_WITHOUT_LYRICS_USER_PROMPT
+)
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
 
@@ -65,30 +73,13 @@ async def compare_compositions(req: ComparingComposition, user: dict = Depends(g
     # Generate a new improved composition plan based on the comparison
     if lyrics_exists:
         new_composition_plan = chat_completion_json(
-            system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
-
-The new composition plan should be a JSON object with the following fields:
-- title: title of the composition
-- positiveGlobalStyles: list of styles that are positive for the composition
-- negativeGlobalStyles: list of styles that are negative for the composition
-- description: description of the composition
-- lyrics: lyrics in the same order as the better composition plan
-
-Analyze what makes the better composition plan superior and incorporate those elements while also learning from the worse plan to avoid its weaknesses. Create a composition plan that is better than both.""",
-            user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
+            system_prompt=GENERATE_IMPROVED_SCHEMA_WITH_LYRICS_SYSTEM_PROMPT,
+            user_prompt=GENERATE_IMPROVED_SCHEMA_WITH_LYRICS_USER_PROMPT.replace("{COMPOSITION_PLAN_BETTER}", json.dumps(composition_plan_better)).replace("{COMPOSITION_PLAN_WORSE}", json.dumps(composition_plan_worse))
         )
     else:
         new_composition_plan = chat_completion_json(
-            system_prompt="""You are a music composer trying to optimize a composition plan by pairwise comparison of compositions. You are given two composition plans - one that is better and one that is worse. You need to create a new composition plan that combines the best aspects of both and improves upon the worse one.
-
-The new composition plan should be a JSON object with the following fields:
-- title: title of the composition
-- positiveGlobalStyles: list of styles that are positive for the composition
-- negativeGlobalStyles: list of styles that are negative for the composition
-- description: description of the composition
-
-Analyze what makes the better composition plan superior and incorporate those elements while also learning from the worse plan to avoid its weaknesses. Create a composition plan that is better than both.""",
-            user_prompt=f"Better composition plan: {composition_plan_better}\n\nWorse composition plan: {composition_plan_worse}\n\nCreate a new improved composition plan that combines the strengths of the better plan while learning from the worse plan."
+            system_prompt=GENERATE_IMPROVED_SCHEMA_WITHOUT_LYRICS_SYSTEM_PROMPT,
+            user_prompt=GENERATE_IMPROVED_SCHEMA_WITHOUT_LYRICS_USER_PROMPT.replace("{COMPOSITION_PLAN_BETTER}", json.dumps(composition_plan_better)).replace("{COMPOSITION_PLAN_WORSE}", json.dumps(composition_plan_worse))
         )
     # Save the new composition plan to Supabase
     # Copy user_prompt, user_styles, lyrics_exists is False, and lyrics_exists from the better plan
