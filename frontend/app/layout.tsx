@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Header from "@/components/tunetree/Header";
+import RouteBackground from "@/components/tunetree/RouteBackground";
 import { AuthButton } from "@/components/auth-button";
 import "./globals.css";
 
@@ -50,11 +51,10 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {/* Full-bleed background: public/background.jpg (or use background.gif for animated) */}
-          <div
-            className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-gray-900"
-            style={{ backgroundImage: "url('/background.jpg')" }}
-          />
+          {/* Full-bleed background: background.jpg by default, background-3.png on portfolio (includes navbar) */}
+          <Suspense fallback={null}>
+            <RouteBackground />
+          </Suspense>
           <div className="relative flex flex-col min-h-screen">
             <Suspense fallback={<HeaderFallback />}>
               <Header>

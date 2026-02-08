@@ -16,18 +16,24 @@ type HeaderProps = {
 export default function Header({ children }: HeaderProps) {
   const pathname = usePathname();
   const isResultsPage = pathname?.startsWith("/results");
+  const isPortfolioPage = pathname?.startsWith("/portfolio");
+  const useNavy = isResultsPage;
 
   const linkBase = "text-xl font-semibold drop-shadow-md transition-colors";
-  const linkClass = isResultsPage
+  const linkClass = useNavy
     ? `${linkBase} ${NAVY} ${NAVY_HOVER}`
     : `${linkBase} ${WHITE} ${WHITE_HOVER}`;
-  const navClass = isResultsPage ? `ml-auto flex items-center gap-6 ${NAVY}` : "ml-auto flex items-center gap-6 text-white";
-  const navLinkClass = isResultsPage
+  const navClass = useNavy ? `ml-auto flex items-center gap-6 ${NAVY}` : "ml-auto flex items-center gap-6 text-white";
+  const navLinkClass = useNavy
     ? "text-sm text-[#1e3a5f]/90 hover:text-[#1e3a5f] drop-shadow-md transition-colors"
     : "text-sm text-white/90 hover:text-white drop-shadow-md transition-colors";
 
+  const headerClass = isPortfolioPage
+    ? "glass-navbar"
+    : "bg-transparent";
+
   return (
-    <header className="bg-transparent">
+    <header className={headerClass}>
       <div className="w-full px-8 sm:px-12 py-4 flex items-center justify-between">
         <Link href="/" className={`flex items-center gap-2 ${linkClass}`}>
           <Image

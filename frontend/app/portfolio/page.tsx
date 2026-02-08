@@ -8,7 +8,6 @@ import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const ARTIST_KEY = "portfolio_artist_name";
-const TAGLINE_KEY = "portfolio_tagline";
 
 const PASTEL_COLORS = [
   "bg-sky-100",
@@ -95,7 +94,6 @@ function publishToStored(p: PublishItem): StoredPortfolioItem {
 
 function PortfolioPageContent() {
   const [artistName, setArtistName] = useState("");
-  const [tagline, setTagline] = useState("");
   const [items, setItems] = useState<PublishItem[]>([]);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [currentTrackId, setCurrentTrackId] = useState<string | null>(null);
@@ -163,13 +161,11 @@ function PortfolioPageContent() {
     savePortfolioItems(stored).catch(() => {});
   }, [items]);
 
-  // Persist artist name and tagline
+  // Persist artist name
   useEffect(() => {
     try {
       const a = localStorage.getItem(ARTIST_KEY);
-      const t = localStorage.getItem(TAGLINE_KEY);
       if (a != null) setArtistName(a);
-      if (t != null) setTagline(t);
     } catch (_) {}
   }, []);
   useEffect(() => {
@@ -177,11 +173,6 @@ function PortfolioPageContent() {
       if (artistName !== "") localStorage.setItem(ARTIST_KEY, artistName);
     } catch (_) {}
   }, [artistName]);
-  useEffect(() => {
-    try {
-      localStorage.setItem(TAGLINE_KEY, tagline);
-    } catch (_) {}
-  }, [tagline]);
 
   // Load duration for items that don't have it yet
   useEffect(() => {
@@ -319,31 +310,24 @@ function PortfolioPageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-gray-900 flex flex-col">
+    <div className="min-h-screen text-white flex flex-col">
       <div className="flex-1 px-6 py-8 pb-28">
         <div className="max-w-6xl mx-auto flex flex-col h-full">
           {/* Artist profile */}
-          <div className="mb-10 pt-2">
+          <div className="mb-5 pt-2">
             <input
               type="text"
               value={artistName}
               onChange={(e) => setArtistName(e.target.value)}
               placeholder="Your artist name"
-              className="text-2xl sm:text-3xl font-bold bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-gray-800 focus:outline-none w-full max-w-md pb-2 transition-colors placeholder:text-gray-400"
-            />
-            <input
-              type="text"
-              value={tagline}
-              onChange={(e) => setTagline(e.target.value)}
-              placeholder="Short tagline (e.g. Producer • Singer)"
-              className="mt-2 text-gray-500 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-gray-600 focus:outline-none w-full max-w-md pb-1.5 text-sm transition-colors placeholder:text-gray-400"
+              className="text-2xl sm:text-3xl font-bold tracking-tight bg-transparent border-b-2 border-white/25 hover:border-white/50 focus:border-sky-300 focus:outline-none w-full max-w-md pb-2.5 pt-0.5 transition-[border-color,box-shadow] duration-200 placeholder:text-white/40 text-white drop-shadow-sm"
             />
           </div>
 
           {/* Section header + add */}
           <div className="flex items-center justify-between gap-4 mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
-              Releases {items.length > 0 && <span className="text-gray-500 font-normal">({items.length})</span>}
+            <h2 className="text-lg font-semibold text-white tracking-tight">
+              Releases {items.length > 0 && <span className="text-sky-200/90 font-normal">({items.length})</span>}
             </h2>
             <input
               ref={inputRef}
@@ -356,7 +340,7 @@ function PortfolioPageContent() {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 text-white hover:bg-sky-600 active:scale-95 transition-all shadow-sm"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-400/90 text-white hover:bg-sky-400 active:scale-95 transition-all shadow-sm"
               aria-label="Add release"
             >
               <Plus className="w-5 h-5" />
@@ -425,14 +409,14 @@ function PortfolioPageContent() {
                         onChange={(e) => updateItem(item.id, { title: e.target.value })}
                         onBlur={() => setEditingTitleId(null)}
                         onKeyDown={(e) => e.key === "Enter" && setEditingTitleId(null)}
-                        className="text-sm font-medium h-8"
+                        className="text-sm font-medium h-8 text-white bg-white/10 border-white/30 placeholder:text-white/50"
                         autoFocus
                       />
                     ) : (
                       <button
                         type="button"
                         onClick={() => setEditingTitleId(item.id)}
-                        className="text-sm font-medium text-gray-800 truncate pr-1 w-full text-left hover:text-gray-600 rounded"
+                        className="text-sm font-medium text-white truncate pr-1 w-full text-left hover:text-sky-200 rounded"
                       >
                         {item.title || fileNameWithoutExt(file.name)}
                       </button>
@@ -488,18 +472,18 @@ function PortfolioPageContent() {
 
           {items.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-4">
-              <div className="rounded-2xl bg-white border border-sky-200/60 shadow-sm p-8 max-w-sm">
-                <div className="rounded-full bg-sky-100 p-5 mb-5 inline-flex">
-                  <Music2 className="w-10 h-10 text-sky-600" />
+              <div className="rounded-2xl border border-white/15 bg-black/30 shadow-xl p-8 max-w-sm backdrop-blur-md">
+                <div className="rounded-full bg-white/20 p-5 mb-5 inline-flex">
+                  <Music2 className="w-10 h-10 text-sky-200" />
                 </div>
-                <p className="text-gray-800 font-semibold">Your portfolio is empty</p>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-white font-semibold">Your portfolio is empty</p>
+                <p className="text-sm text-sky-100/80 mt-2">
                   Add your first release to showcase your music. Upload an MP3 or other audio file to get started.
                 </p>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="mt-6 px-5 py-2.5 rounded-full bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 active:scale-[0.98] transition-all shadow-sm"
+                  className="mt-6 px-5 py-2.5 rounded-full bg-sky-400/90 text-white text-sm font-medium hover:bg-sky-400 active:scale-[0.98] transition-all shadow-sm"
                 >
                   Add your first release
                 </button>
@@ -510,7 +494,7 @@ function PortfolioPageContent() {
       </div>
 
       {currentTrack && (
-        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-orange-50/95 backdrop-blur-md border-t border-orange-200/80 text-gray-900 shadow-[0_-4px_24px_rgba(249,115,22,0.12)]">
+        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-black/30 backdrop-blur-md border-t border-white/15 text-white">
           {/* Progress bar - full width */}
           <div
             ref={progressBarRef}
@@ -518,43 +502,43 @@ function PortfolioPageContent() {
             aria-valuenow={duration > 0 ? (currentTime / duration) * 100 : 0}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="relative h-1 w-full cursor-pointer group/progress bg-orange-100 hover:h-1.5 transition-[height]"
+            className="relative h-1 w-full cursor-pointer group/progress bg-white/20 hover:h-1.5 transition-[height]"
             onClick={handleSeek}
           >
             <div
-              className="h-full bg-orange-500 transition-[width] duration-75 rounded-r"
+              className="h-full bg-sky-400 transition-[width] duration-75 rounded-r"
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-orange-500 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-sky-400 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
               style={{ left: `calc(${progress}% - 6px)` }}
             />
           </div>
 
-          <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+          <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
             {/* Left: track info */}
-            <div className="flex items-center gap-3 min-w-0 w-full sm:w-[30%] sm:max-w-[280px] order-2 sm:order-1">
+            <div className="flex items-center gap-3 min-w-0 justify-self-start">
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-orange-200/50 border border-orange-100`}
+                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-white/20 border border-white/10`}
                 aria-hidden
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate text-gray-900">
+                <p className="text-sm font-semibold truncate text-white">
                   {currentTrack.title || fileNameWithoutExt(currentTrack.file.name)}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-sky-200/90 truncate">
                   {artistName || "Artist"}
                 </p>
               </div>
             </div>
 
             {/* Center: play controls + time */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-1 min-w-0 order-1 sm:order-2">
+            <div className="flex flex-col items-center justify-center gap-1">
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={toggleBarPlayPause}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-200 text-amber-900 hover:bg-amber-300 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 hover:scale-105 active:scale-95 transition-all shadow-sm"
                   aria-label={playingId === currentTrack.id ? "Pause" : "Play"}
                 >
                   {playingId === currentTrack.id ? (
@@ -564,7 +548,7 @@ function PortfolioPageContent() {
                   )}
                 </button>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500 tabular-nums">
+              <div className="flex items-center gap-2 text-xs text-sky-200/80 tabular-nums">
                 <span>{formatDuration(currentTime)}</span>
                 <span>/</span>
                 <span>{currentTrack.duration != null ? formatDuration(currentTrack.duration) : "0:00"}</span>
@@ -572,11 +556,11 @@ function PortfolioPageContent() {
             </div>
 
             {/* Right: volume */}
-            <div className="flex items-center gap-2 w-full sm:w-[30%] sm:max-w-[140px] order-3">
+            <div className="flex items-center gap-2 justify-self-end min-w-0 max-w-[140px]">
               <button
                 type="button"
                 onClick={() => setIsMuted((m) => !m)}
-                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
+                className="p-1.5 rounded-full text-sky-200/80 hover:text-white transition-colors"
                 aria-label={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? (
@@ -596,7 +580,7 @@ function PortfolioPageContent() {
                   setVolume(v);
                   if (v > 0) setIsMuted(false);
                 }}
-                className="w-full h-1.5 accent-amber-200 bg-orange-100 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-200 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm"
+                className="w-full h-1.5 accent-sky-400 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-400 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm"
               />
             </div>
           </div>
@@ -608,7 +592,7 @@ function PortfolioPageContent() {
 
 function PortfolioFallback() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-gray-600">
+    <div className="min-h-screen flex flex-col items-center justify-center text-gray-600">
       <div className="animate-pulse flex flex-col items-center gap-3">
         <Music2 className="w-10 h-10 text-sky-400" />
         <p className="text-sm">Loading portfolio…</p>
