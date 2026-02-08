@@ -14,7 +14,7 @@ function filterValidFiles(fileList: FileList | File[]): File[] {
   return arr.filter((f) => AUDIO_EXT.test(f.name));
 }
 
-export default function ConvertPage() {
+export default function StudioPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "converting" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +119,7 @@ export default function ConvertPage() {
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
               <Music2 className="w-7 h-7" />
-              MP3 to MIDI Converter
+              Studio
             </h1>
             <p className="text-gray-600">
               Upload audio files to convert to MIDI, then edit in the editor.

@@ -238,7 +238,7 @@ export default function EditorPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-6 px-6">
         <p className="text-gray-600">{error}</p>
-        <Link href="/convert">
+        <Link href="/studio">
           <Button>Convert MP3 to MIDI first</Button>
         </Link>
       </div>
@@ -257,7 +257,7 @@ export default function EditorPage() {
     <div className="min-h-screen bg-white text-gray-900 flex flex-col">
       <header className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/convert">
+          <Link href="/studio">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back

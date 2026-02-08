@@ -13,10 +13,16 @@ export default function Header() {
         </Link>
         <nav className="ml-auto flex items-center gap-6" aria-label="Main navigation">
           <Link
-            href="/convert"
+            href="/portfolio"
             className="text-sm text-gray-600 hover:text-gray-900"
           >
-            MP3 → MIDI
+            Portfolio
+          </Link>
+          <Link
+            href="/studio"
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            Studio
           </Link>
           <AuthButton />
         </nav>
