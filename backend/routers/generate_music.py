@@ -6,11 +6,12 @@ import os
 import json
 import uuid
 import io
+import zipfile
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from supabase import create_client, Client
 from elevenlabs import ElevenLabs
 from services.chatCompletion import chat_completion_json
@@ -24,6 +25,7 @@ length_ms = 4000
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
+
 supabase: Client = create_client(url, key)
 elevenlabs_api_key: str = os.environ.get("ELEVENLABS_API_KEY")
 
@@ -150,6 +152,13 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             print(f"Error uploading to Supabase storage: {e}")
             # Continue even if storage upload fails (for backward compatibility)
         
+        # Use placeholder image from picsum.photos
+        # Use a seed based on title to get a consistent image for the same song
+        import hashlib
+        seed = int(hashlib.md5(title.encode()).hexdigest()[:8], 16) % 1000
+        cover_image_url = f"https://picsum.photos/200"
+        print(f"Using placeholder album cover: {cover_image_url}")
+        
         # Convert track metadata to dict if it's a model
         # Save to Supabase in a new table
         saved_id = None
@@ -167,6 +176,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
                 "audio_filename": audio_filename,
                 "storage_path": storage_path,
                 "cover_image_path": cover_image_path,
+                "cover_image_url": cover_image_url,
             }).execute()
             saved_id = db_response.data[0]["id"] if db_response.data else None
         except Exception as e:
@@ -265,4 +275,38 @@ async def get_audio_file(filename: str, user: dict = Depends(get_current_user)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error serving audio file: {str(e)}")
+
+
+@generate_music_router.get("/download-run/{run_id}")
+async def download_run_music_zip(run_id: str, user: dict = Depends(get_current_user)):
+    """Download all final compositions for a run as a zip. Only returns compositions belonging to the authenticated user."""
+    response = supabase.table("final_compositions").select("*").eq("run_id", run_id).eq("user_id", user["user_id"]).order("created_at").execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="No compositions found for this run")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for row in response.data:
+            audio_filename = row.get("audio_filename")
+            if not audio_filename:
+                continue
+            
+            storage_path = row.get("storage_path")
+            
+            # Try to get from Supabase storage first
+            if storage_path:
+                try:
+                    file_data = supabase.storage.from_("music").download(storage_path)
+                    if file_data:
+                        zf.writestr(audio_filename, file_data)
+                        continue
+                except Exception as e:
+                    print(f"Error downloading {audio_filename} from storage: {e}")
+                    # Fall back to local file
+            
+            # Fall back to local file
+            audio_path = MUSIC_DIR / audio_filename
+            if audio_path.exists():
+                zf.write(audio_path, audio_filename)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/zip", headers={"Content-Disposition": f"attachment; filename=run-{run_id}-music.zip"})
 
