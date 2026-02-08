@@ -81,8 +81,8 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         positiveGlobalStyles = str(composition_plan['positiveGlobalStyles'])
         negativeGlobalStyles = str(composition_plan['negativeGlobalStyles'])
 
-        prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles)
-        
+        genre_voice_example = get_genre_voice_example(positiveGlobalStyles)
+        prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles).replace("{genre_voice_example}", genre_voice_example)
         while False:
             try:
                 composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
