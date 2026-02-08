@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LineShadowText } from "@/components/ui/line-shadow-text";
 import SongCard, { type SongData } from "@/components/tunetree/SongCard";
 
 const MOCK_SONG_A: SongData = {
@@ -24,21 +25,47 @@ export default function ResultsPage() {
   const [songB, setSongB] = useState<SongData>(MOCK_SONG_B);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white text-gray-900 overflow-hidden">
-      <main className="flex-1 flex flex-col items-center min-h-0 py-6 sm:py-8 px-6">
-        <div className="w-full max-w-5xl mx-auto flex flex-col flex-1 min-h-0 gap-6">
-          <div className="text-center space-y-2 shrink-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-              Choose a version
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 text-black overflow-hidden">
+      <main className="flex-1 flex flex-col items-center min-h-0 py-10 px-6">
+        <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 gap-10">
+          
+          {/* Header */}
+          <div className="text-center space-y-4 shrink-0">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-balance">
+              Choose a{" "}
+              <LineShadowText shadowColor="black" className="italic">
+                version
+              </LineShadowText>
             </h1>
-            <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
-              Choose a version to keep. The other will be regenerated based on your tastes.
+
+            <p className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto">
+              Pick the version you like. We’ll regenerate the other based on your edits.
             </p>
+
+            <div className="h-0.5 w-20 bg-black/70 mx-auto rounded-full" />
+
+
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 flex-1 min-h-0">
-            <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
-            <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
+          {/* Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 min-h-0">
+            <div className="relative group transition-transform duration-300 hover:-translate-y-1">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-emerald-300/40 to-lime-300/40 blur opacity-0 group-hover:opacity-100 transition" />
+              <SongCard
+                song={songA}
+                onChange={setSongA}
+                variantLabel="Version A"
+              />
+            </div>
+
+            <div className="relative group transition-transform duration-300 hover:-translate-y-1">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-amber-300/40 to-orange-300/40 blur opacity-0 group-hover:opacity-100 transition" />
+              <SongCard
+                song={songB}
+                onChange={setSongB}
+                variantLabel="Version B"
+              />
+            </div>
           </div>
         </div>
       </main>
