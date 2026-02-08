@@ -10,10 +10,12 @@ export interface StoredPortfolioItem {
   duration: number | null;
   featured: boolean;
   description: string;
+  lyrics: string;
   blob: Blob;
   fileName: string;
   fileSize: number;
   fileLastModified: number;
+  cover_image_url?: string;
 }
 
 // Module-level store shared by Studio and Portfolio

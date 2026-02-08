@@ -55,12 +55,12 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <RouteBackground />
           </Suspense>
-          <div className="relative flex flex-col min-h-screen">
-            <Suspense fallback={<HeaderFallback />}>
+          <Suspense fallback={<HeaderFallback />}>
               <Header>
                 <AuthButton />
               </Header>
             </Suspense>
+          <div className="relative flex flex-col min-h-screen pt-12">
             <div className="flex-1 flex flex-col min-h-0">
               {children}
             </div>

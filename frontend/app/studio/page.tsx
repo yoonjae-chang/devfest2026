@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Music2, Loader2, ArrowRight, Plus, X, Download, Upload } from "lucide-react";
+import { Music2, Loader2, Plus, X, Download, Upload, ArrowRight } from "lucide-react";
 import { backendApi } from "@/lib/api";
 import { appendPortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
 
@@ -25,7 +25,7 @@ function fileNameWithoutExt(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
-export default function StudioPage() {
+function StudioPageContent() {
   const searchParams = useSearchParams();
   const runId = searchParams.get("run_id");
   const [files, setFiles] = useState<File[]>([]);
@@ -35,8 +35,7 @@ export default function StudioPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [loadingRunMusic, setLoadingRunMusic] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
-  const chooseInputRef = useRef<HTMLInputElement>(null);
-  const addInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!runId) return;
@@ -72,21 +71,24 @@ export default function StudioPage() {
     };
   }, [runId]);
 
-  const handleChooseFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = filterValidFiles(e.target.files || []);
-    setFiles(selected);
-    setStatus("idle");
-    setError(null);
-    e.target.value = "";
-  };
+  // Reset status when files become empty
+  useEffect(() => {
+    if (files.length === 0) {
+      setStatus("idle");
+    }
+  }, [files.length]);
 
-  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = filterValidFiles(e.target.files || []);
     if (selected.length === 0) {
       e.target.value = "";
       return;
     }
     setFiles((prev) => {
+      // If no files exist, replace; otherwise add to existing
+      if (prev.length === 0) {
+        return selected;
+      }
       const merged = [...prev];
       const keys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
       for (const f of selected) {
@@ -138,7 +140,14 @@ export default function StudioPage() {
   };
 
   const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const newFiles = prev.filter((_, i) => i !== index);
+      return newFiles;
+    });
+    // Reset status if we had a successful conversion (since the conversion was for the old file set)
+    if (status === "success") {
+      setStatus("idle");
+    }
   };
 
   const handleDownloadMp3 = async () => {
@@ -205,6 +214,7 @@ export default function StudioPage() {
           duration: null,
           featured: false,
           description: "",
+          lyrics: "",
           blob,
           fileName: file.name,
           fileSize: file.size,
@@ -212,7 +222,14 @@ export default function StudioPage() {
         });
       }
       await appendPortfolioItems(newItems);
+      // Clear files after successful publish
+      setFiles([]);
+      setStatus("idle");
       setPublishSuccess(true);
+      // Hide success message after 10 seconds
+      setTimeout(() => {
+        setPublishSuccess(false);
+      }, 10000);
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -225,8 +242,8 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
+    <div className="flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center md:pt-28 pt-16 px-6 py-12">
         <div className="w-full max-w-2xl space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
@@ -238,7 +255,7 @@ export default function StudioPage() {
             </p>
           </div>
 
-          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl">
+          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl min-h-[400px]">
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -250,37 +267,28 @@ export default function StudioPage() {
             }`}
           >
             <input
-              ref={chooseInputRef}
+              ref={fileInputRef}
               type="file"
               accept=".mp3,.wav,.flac,.ogg,.m4a"
               multiple
-              onChange={handleChooseFiles}
-              className="hidden"
-            />
-            <input
-              ref={addInputRef}
-              type="file"
-              accept=".mp3,.wav,.flac,.ogg,.m4a"
-              multiple
-              onChange={handleAddFiles}
+              onChange={handleFileSelect}
               className="hidden"
             />
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center flex-wrap">
               <Button
                 variant="outline"
-                onClick={() => chooseInputRef.current?.click()}
-                className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900"
-              >
-                Choose files
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => addInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()}
                 disabled={files.length >= MAX_FILES}
                 className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900 disabled:opacity-50 disabled:hover:bg-white/20"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add more
+                {files.length === 0 ? (
+                  "Choose files"
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add more files
+                  </>
+                )}
               </Button>
             </div>
             <p className="text-sm text-gray-700 mt-3">
@@ -333,20 +341,29 @@ export default function StudioPage() {
               <Download className="w-4 h-4 mr-2" />
               Download MP3
             </Button>
-            <Button
-              onClick={handleConvert}
-              disabled={files.length === 0 || status === "converting"}
-              className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800 disabled:opacity-50"
-            >
-              {status === "converting" ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Converting…
-                </>
-              ) : (
-                "Convert to MIDI"
-              )}
-            </Button>
+            {status === "success" ? (
+              <Link href="/editor">
+                <Button className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800">
+                  Go to editor
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                onClick={handleConvert}
+                disabled={files.length === 0 || status === "converting"}
+                className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800 disabled:opacity-50"
+              >
+                {status === "converting" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Converting…
+                  </>
+                ) : (
+                  "Convert to MIDI"
+                )}
+              </Button>
+            )}
             <Button
               onClick={handlePublish}
               disabled={files.length === 0}
@@ -358,37 +375,12 @@ export default function StudioPage() {
             </Button>
           </div>
 
-          {status === "success" && (
-            <div className="flex flex-col items-center gap-2">
-              {convertedCount > 1 && (
-                <p className="text-sm text-gray-700">
-                  {convertedCount} files converted. Switch between them in the editor.
-                </p>
-              )}
-              <Link href="/editor">
-                <Button
-                  variant="secondary"
-                  className="glass-button bg-white/30 text-gray-900 border-white/40 hover:bg-white/50 hover:text-gray-900"
-                >
-                  Open in editor
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-          )}
+          <div className="flex flex-wrap h-3 gap-3 justify-center">
+             {publishSuccess && (
+              <>Successfully published to portfolio!<Link className="ml-[-3px] underline text-sky-600 hover:text-sky-800" href="/portfolio?published=1">View portfolio</Link></>
+             )}
+          </div>
 
-          {publishSuccess && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-              <p className="text-green-800 text-sm mb-2">
-                {files.length === 1 ? "Track" : `${files.length} tracks`} added to your portfolio.
-              </p>
-              <Link href="/portfolio?published=1">
-                <Button variant="outline" size="sm" className="border-green-300 text-green-800 hover:bg-green-100">
-                  View portfolio
-                </Button>
-              </Link>
-            </div>
-          )}
 
           <p className="text-center text-sm text-gray-600">
             Single-instrument tracks work best. Max 10 files, 50MB each.
@@ -397,5 +389,29 @@ export default function StudioPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col">
+          <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
+            <div className="w-full max-w-2xl space-y-8">
+              <div className="text-center space-y-2">
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+                  <Music2 className="w-7 h-7" />
+                  Studio
+                </h1>
+                <p className="text-white/90 drop-shadow-sm">Loading...</p>
+              </div>
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <StudioPageContent />
+    </Suspense>
   );
 }

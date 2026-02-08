@@ -2,9 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Play, Pause, Star, Trash2, ChevronUp, ChevronDown, Music2, Volume2, VolumeX } from "lucide-react";
+import { Plus, Play, Pause, Star, Trash2, ChevronUp, ChevronDown, Music2, Volume2, VolumeX, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
+import { backendApi } from "@/lib/api";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const ARTIST_KEY = "portfolio_artist_name";
@@ -30,6 +31,8 @@ interface PublishItem {
   duration: number | null;
   featured: boolean;
   description: string;
+  lyrics: string;
+  cover_image_url?: string;
 }
 
 function filterMp3(fileList: FileList | File[]): File[] {
@@ -74,6 +77,8 @@ function storedToPublish(s: StoredPortfolioItem): PublishItem {
     duration: s.duration,
     featured: s.featured,
     description: s.description,
+    lyrics: s.lyrics || "",
+    cover_image_url: s.cover_image_url,
   };
 }
 
@@ -85,10 +90,12 @@ function publishToStored(p: PublishItem): StoredPortfolioItem {
     duration: p.duration,
     featured: p.featured,
     description: p.description,
+    lyrics: p.lyrics || "",
     blob: p.file,
     fileName: p.file.name,
     fileSize: p.file.size,
     fileLastModified: p.file.lastModified,
+    cover_image_url: p.cover_image_url,
   };
 }
 
@@ -102,7 +109,17 @@ function PortfolioPageContent() {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
+  const [editingLyrics, setEditingLyrics] = useState(false);
+  const [tempLyrics, setTempLyrics] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset lyrics editing state when modal closes
+  useEffect(() => {
+    if (!detailItemId) {
+      setEditingLyrics(false);
+    }
+  }, [detailItemId]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
@@ -198,31 +215,66 @@ function PortfolioPageContent() {
   }, [items]);
 
   const currentTrack = items.find((i) => i.id === currentTrackId);
-  const displayOrder = [...items].sort((a, b) => Number(b.featured) - Number(a.featured));
+  const displayOrder = [...items].sort((a, b) => {
+    // First sort by featured status, then by title
+    const featuredDiff = Number(b.featured) - Number(a.featured);
+    if (featuredDiff !== 0) return featuredDiff;
+    return (a.title || fileNameWithoutExt(a.file.name)).localeCompare(b.title || fileNameWithoutExt(b.file.name));
+  });
 
-  const handleAddFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = filterMp3(e.target.files || []);
     if (files.length === 0) {
       e.target.value = "";
       return;
     }
+    
+    // Add items first without cover images
+    const newItems: PublishItem[] = [];
     setItems((prev) => {
       const next = [...prev];
       for (const file of files) {
         const colorClass = PASTEL_COLORS[next.length % PASTEL_COLORS.length];
-        next.push({
+        const title = fileNameWithoutExt(file.name);
+        const newItem: PublishItem = {
           id: `${file.name}-${file.size}-${file.lastModified}-${Date.now()}`,
           file,
           colorClass,
-          title: fileNameWithoutExt(file.name),
+          title,
           duration: null,
           featured: false,
           description: "",
-        });
+          lyrics: "",
+        };
+        next.push(newItem);
+        newItems.push(newItem);
       }
       return next;
     });
     e.target.value = "";
+
+    // Generate album covers for each new item
+    for (const item of newItems) {
+      try {
+        const coverResponse = await backendApi.generateAlbumCover({
+          title: item.title,
+          description: item.description,
+          artist_name: artistName,
+        });
+        
+        // Update the item with the cover image URL
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === item.id
+              ? { ...p, cover_image_url: coverResponse.cover_image_url }
+              : p
+          )
+        );
+      } catch (error) {
+        console.error(`Failed to generate album cover for ${item.title}:`, error);
+        // Continue even if cover generation fails
+      }
+    }
   };
 
   const handlePlayClick = useCallback((item: PublishItem) => {
@@ -356,16 +408,22 @@ function PortfolioPageContent() {
               return (
                 <div key={item.id} className="group flex flex-col gap-2.5">
                   <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => handlePlayClick(item)}
-                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm border border-sky-200/50 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full`}
-                      title="Click to play"
+                    <div
+                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm border border-sky-200/50 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full overflow-hidden`}
+                      onClick={() => setDetailItemId(item.id)}
+                      title="Click for details"
                     >
-                      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 rounded-2xl">
-                        <Play className="w-10 h-10 text-gray-800 ml-0.5 drop-shadow-sm" />
+                      {item.cover_image_url ? (
+                        <img
+                          src={item.cover_image_url}
+                          alt={item.title}
+                          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                        />
+                      ) : null}
+                      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl pointer-events-none">
+                        <Play className="w-10 h-10 text-white ml-0.5 drop-shadow-lg" />
                       </span>
-                    </button>
+                    </div>
                     {item.featured && (
                       <span className="absolute top-2 right-2 rounded-full bg-sky-400/95 p-1.5 shadow-sm" title="Featured">
                         <Star className="w-4 h-4 text-sky-900" fill="currentColor" />
@@ -518,10 +576,18 @@ function PortfolioPageContent() {
           <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
             {/* Left: track info */}
             <div className="flex items-center gap-3 min-w-0 justify-self-start">
-              <div
-                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-white/20 border border-white/10`}
-                aria-hidden
-              />
+              {currentTrack.cover_image_url ? (
+                <img
+                  src={currentTrack.cover_image_url}
+                  alt={currentTrack.title}
+                  className="flex-shrink-0 w-14 h-14 rounded-lg object-cover shadow-sm ring-1 ring-white/20 border border-white/10"
+                />
+              ) : (
+                <div
+                  className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-white/20 border border-white/10`}
+                  aria-hidden
+                />
+              )}
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate text-white">
                   {currentTrack.title || fileNameWithoutExt(currentTrack.file.name)}
@@ -586,6 +652,149 @@ function PortfolioPageContent() {
           </div>
         </footer>
       )}
+
+      {/* Detail Modal */}
+      {detailItemId && (() => {
+        const detailItem = items.find((i) => i.id === detailItemId);
+        if (!detailItem) return null;
+        
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setDetailItemId(null);
+              setEditingLyrics(false);
+            }}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 rounded-2xl shadow-2xl border border-white/20 overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="relative h-64 sm:h-80 overflow-hidden">
+                {detailItem.cover_image_url ? (
+                  <img
+                    src={detailItem.cover_image_url}
+                    alt={detailItem.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className={`w-full h-full ${detailItem.colorClass}`} />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailItemId(null);
+                    setEditingLyrics(false);
+                  }}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">
+                    {detailItem.title || fileNameWithoutExt(detailItem.file.name)}
+                  </h2>
+                  <p className="text-sky-200/90 text-lg drop-shadow-md">
+                    {artistName || "Artist"}
+                  </p>
+                  {detailItem.duration != null && (
+                    <p className="text-white/70 text-sm mt-1">
+                      {formatDuration(detailItem.duration)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Description */}
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
+                  {editingDescriptionId === detailItem.id ? (
+                    <textarea
+                      value={detailItem.description}
+                      onChange={(e) => updateItem(detailItem.id, { description: e.target.value })}
+                      onBlur={() => setEditingDescriptionId(null)}
+                      placeholder="Add a description..."
+                      className="w-full bg-gray-800 rounded-lg p-3 text-white placeholder:text-gray-400 resize-none border border-gray-700 focus:border-sky-400 focus:outline-none"
+                      rows={3}
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      onClick={() => setEditingDescriptionId(detailItem.id)}
+                      className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[60px] cursor-text hover:bg-gray-800/70 transition-colors"
+                    >
+                      {detailItem.description || (
+                        <span className="text-gray-500 italic">Click to add a description...</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Lyrics */}
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Lyrics</h3>
+                  {editingLyrics ? (
+                    <textarea
+                      value={tempLyrics}
+                      onChange={(e) => setTempLyrics(e.target.value)}
+                      onBlur={() => {
+                        updateItem(detailItem.id, { lyrics: tempLyrics });
+                        setEditingLyrics(false);
+                      }}
+                      placeholder="Add lyrics..."
+                      className="w-full bg-gray-800 rounded-lg p-4 text-white placeholder:text-gray-400 resize-none border border-gray-700 focus:border-sky-400 focus:outline-none font-mono text-sm leading-relaxed"
+                      rows={12}
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      onClick={() => {
+                        setTempLyrics(detailItem.lyrics || "");
+                        setEditingLyrics(true);
+                      }}
+                      className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[200px] cursor-text hover:bg-gray-800/70 transition-colors whitespace-pre-wrap font-mono text-sm leading-relaxed"
+                    >
+                      {detailItem.lyrics || (
+                        <span className="text-gray-500 italic">Click to add lyrics...</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Play Button */}
+                <div className="pt-4 border-t border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handlePlayClick(detailItem);
+                      setDetailItemId(null);
+                      setEditingLyrics(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium transition-colors"
+                  >
+                    {playingId === detailItem.id ? (
+                      <>
+                        <Pause className="w-5 h-5" />
+                        <span>Pause</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5 ml-0.5" />
+                        <span>Play Track</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

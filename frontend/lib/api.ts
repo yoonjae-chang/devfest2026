@@ -209,6 +209,22 @@ export const backendApi = {
     }
     return res.blob();
   },
+
+  // Generate AI album cover
+  generateAlbumCover: async (data: {
+    title: string;
+    description?: string;
+    artist_name?: string;
+  }) => {
+    return apiRequest<{
+      cover_image_url: string;
+      storage_path: string;
+      filename: string;
+    }>("/generate-album-cover/generate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 /**

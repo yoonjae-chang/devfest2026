@@ -35,7 +35,7 @@ export default function SongCard({
 
   const articleClass = glass
     ? "relative flex flex-col h-full min-h-0 glass-panel border border-white/20 bg-white/10 rounded-xl p-4 overflow-hidden shadow-xl"
-    : "relative flex flex-col h-full min-h-0 bg-white border border-slate-200 rounded-xl p-6 overflow-hidden shadow-sm";
+    : "relative flex flex-col h-full min-h-0 bg-white border border-slate-200 rounded-xl p-5 overflow-hidden shadow-sm";
 
   const spacing = glass ? "mt-2 gap-2" : "mt-4 gap-4";
   const borderSpacing = glass ? "mt-2 pt-2" : "mt-4 pt-4";

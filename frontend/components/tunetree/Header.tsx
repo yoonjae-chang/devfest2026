@@ -17,6 +17,7 @@ export default function Header({ children }: HeaderProps) {
   const pathname = usePathname();
   const isResultsPage = pathname?.startsWith("/results");
   const isPortfolioPage = pathname?.startsWith("/portfolio");
+  const isEditorPage = pathname?.startsWith("/editor");
   const useNavy = isResultsPage;
 
   const linkBase = "text-xl font-semibold drop-shadow-md transition-colors";
@@ -28,9 +29,9 @@ export default function Header({ children }: HeaderProps) {
     ? "text-sm text-[#1e3a5f]/90 hover:text-[#1e3a5f] drop-shadow-md transition-colors"
     : "text-sm text-white/90 hover:text-white drop-shadow-md transition-colors";
 
-  const headerClass = isPortfolioPage
-    ? "glass-navbar"
-    : "bg-transparent";
+  const headerClass = isPortfolioPage || isEditorPage
+    ? "glass-navbar fixed top-0 left-0 right-0 z-50"
+    : "bg-transparent fixed top-0 left-0 right-0 z-50";
 
   return (
     <header className={headerClass}>
