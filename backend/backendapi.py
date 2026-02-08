@@ -10,6 +10,7 @@ import os
 from routers.generate_schema import generate_router
 from routers.customize_schema import customize_router
 from routers.generate_music import generate_music_router
+from mp3_to_midi import router as mp3_to_midi_router
 from supabase import create_client, Client
 
 env_path = Path(".") / ".env.local"
@@ -25,6 +26,7 @@ app = FastAPI()
 app.include_router(generate_router)
 app.include_router(customize_router)
 app.include_router(generate_music_router)
+app.include_router(mp3_to_midi_router)
 
 app.add_middleware(
     CORSMiddleware,
