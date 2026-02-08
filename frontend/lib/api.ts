@@ -194,6 +194,21 @@ export const backendApi = {
   
   getFinalCompositionsByRun: (runId: string) => 
     apiRequest(`/generate-music/final-compositions/run/${runId}`),
+
+  /** Download all generated music for a run as a zip (blob). */
+  getRunMusicZip: async (runId: string): Promise<Blob> => {
+    const token = await getAuthToken();
+    if (!token) throw new Error("Authentication required. Please log in.");
+    const res = await fetch(`${API_BASE_URL}/generate-music/download-run/${runId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(typeof err.detail === "string" ? err.detail : String(err.detail));
+    }
+    return res.blob();
+  },
 };
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Play, Pause, Star, Trash2, ChevronUp, ChevronDown, Music2, Volume2, VolumeX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
@@ -92,7 +93,7 @@ function publishToStored(p: PublishItem): StoredPortfolioItem {
   };
 }
 
-export default function PortfolioPage() {
+function PortfolioPageContent() {
   const [artistName, setArtistName] = useState("");
   const [tagline, setTagline] = useState("");
   const [items, setItems] = useState<PublishItem[]>([]);
@@ -107,24 +108,57 @@ export default function PortfolioPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  // Load portfolio items from IndexedDB on mount
+  const searchParams = useSearchParams();
+
+  // Load portfolio items from IndexedDB (no server, no auth)
   const hasLoadedRef = useRef(false);
-  useEffect(() => {
-    if (hasLoadedRef.current) return;
+  const loadCompleteRef = useRef(false);
+  const skipNextPersistRef = useRef(false);
+  const refreshFromStorage = useCallback(() => {
     loadPortfolioItems()
       .then((stored) => {
-        hasLoadedRef.current = true;
         const parsed = stored.map(storedToPublish);
-        if (parsed.length > 0) setItems(parsed);
+        skipNextPersistRef.current = true; // Don't persist what we just loaded
+        loadCompleteRef.current = true;
+        setItems(parsed);
       })
       .catch(() => {
-        hasLoadedRef.current = true;
+        loadCompleteRef.current = true;
       });
   }, []);
 
-  // Persist items to IndexedDB whenever they change (skip until initial load is done)
   useEffect(() => {
-    if (!hasLoadedRef.current) return;
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    refreshFromStorage();
+  }, [refreshFromStorage]);
+
+  // After publishing from Studio (?published=1), refetch then clean URL
+  useEffect(() => {
+    if (searchParams.get("published") !== "1") return;
+    const t = setTimeout(() => {
+      refreshFromStorage();
+      window.history.replaceState({}, "", "/portfolio");
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchParams, refreshFromStorage]);
+
+  // When returning to tab, refetch so published items from Studio show up
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshFromStorage();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [refreshFromStorage]);
+
+  // Persist only when user edits — never before load completes, never right after load
+  useEffect(() => {
+    if (!loadCompleteRef.current) return;
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
     const stored = items.map(publishToStored);
     savePortfolioItems(stored).catch(() => {});
   }, [items]);
@@ -476,7 +510,7 @@ export default function PortfolioPage() {
       </div>
 
       {currentTrack && (
-        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-sky-200/60 text-gray-900 shadow-[0_-4px_24px_rgba(14,165,233,0.08)]">
+        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-orange-50/95 backdrop-blur-md border-t border-orange-200/80 text-gray-900 shadow-[0_-4px_24px_rgba(249,115,22,0.12)]">
           {/* Progress bar - full width */}
           <div
             ref={progressBarRef}
@@ -484,15 +518,15 @@ export default function PortfolioPage() {
             aria-valuenow={duration > 0 ? (currentTime / duration) * 100 : 0}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="relative h-1 w-full cursor-pointer group/progress bg-sky-100 hover:h-1.5 transition-[height]"
+            className="relative h-1 w-full cursor-pointer group/progress bg-orange-100 hover:h-1.5 transition-[height]"
             onClick={handleSeek}
           >
             <div
-              className="h-full bg-sky-500 transition-[width] duration-75 rounded-r"
+              className="h-full bg-orange-500 transition-[width] duration-75 rounded-r"
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-sky-500 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-orange-500 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
               style={{ left: `calc(${progress}% - 6px)` }}
             />
           </div>
@@ -501,7 +535,7 @@ export default function PortfolioPage() {
             {/* Left: track info */}
             <div className="flex items-center gap-3 min-w-0 w-full sm:w-[30%] sm:max-w-[280px] order-2 sm:order-1">
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-sky-200/40 border border-white/80`}
+                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-orange-200/50 border border-orange-100`}
                 aria-hidden
               />
               <div className="min-w-0">
@@ -520,7 +554,7 @@ export default function PortfolioPage() {
                 <button
                   type="button"
                   onClick={toggleBarPlayPause}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 text-white hover:bg-sky-600 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-200 text-amber-900 hover:bg-amber-300 hover:scale-105 active:scale-95 transition-all shadow-sm"
                   aria-label={playingId === currentTrack.id ? "Pause" : "Play"}
                 >
                   {playingId === currentTrack.id ? (
@@ -562,12 +596,31 @@ export default function PortfolioPage() {
                   setVolume(v);
                   if (v > 0) setIsMuted(false);
                 }}
-                className="w-full h-1.5 accent-sky-500 bg-sky-100 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm"
+                className="w-full h-1.5 accent-amber-200 bg-orange-100 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-200 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm"
               />
             </div>
           </div>
         </footer>
       )}
     </div>
+  );
+}
+
+function PortfolioFallback() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-gray-600">
+      <div className="animate-pulse flex flex-col items-center gap-3">
+        <Music2 className="w-10 h-10 text-sky-400" />
+        <p className="text-sm">Loading portfolio…</p>
+      </div>
+    </div>
+  );
+}
+
+export default function PortfolioPage() {
+  return (
+    <Suspense fallback={<PortfolioFallback />}>
+      <PortfolioPageContent />
+    </Suspense>
   );
 }
