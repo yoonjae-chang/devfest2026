@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import pydantic
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse
 from supabase import create_client, Client
 from elevenlabs import ElevenLabs
 from services.chatCompletion import chat_completion_json
@@ -121,14 +122,19 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         # Convert track metadata to dict if it's a model
         # Save to Supabase in a new table
         saved_id = None
+        cover_image_path = f"{req.run_id}_{req.composition_plan_id}.png"
         print("SAVED ID: ", saved_id)
         try:
             db_response = supabase.table("final_compositions").insert({
+                "uuid": uuid.uuid4(),
                 "user_id": req.user_id,
                 "run_id": req.run_id,
                 "composition_plan_id": req.composition_plan_id,
+                "title": composition_plan['title'],
+                "composition_plan": updated_plan,
                 "audio_path": str(audio_path),
                 "audio_filename": audio_filename,
+                "cover_image_path": cover_image_path,
             }).execute()
             saved_id = db_response.data[0]["id"] if db_response.data else None
         except Exception as e:
@@ -175,4 +181,37 @@ async def get_final_compositions_by_run(run_id: str, user: dict = Depends(get_cu
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching final compositions: {str(e)}")
+
+
+@generate_music_router.get("/audio/{filename}")
+async def get_audio_file(filename: str, user: dict = Depends(get_current_user)):
+    """Serve audio file. Only allows access if the file belongs to the authenticated user."""
+    try:
+        # Verify the file belongs to the user by checking final_compositions table
+        if not filename.endswith(".mp3"):
+            raise HTTPException(status_code=400, detail="Invalid file format")
+        
+        # Check if this file is associated with the user
+        response = supabase.table("final_compositions").select("user_id").eq("audio_filename", filename).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Audio file not found")
+        
+        if response.data[0]["user_id"] != user["user_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Serve the file
+        audio_path = MUSIC_DIR / filename
+        if not audio_path.exists():
+            raise HTTPException(status_code=404, detail="Audio file not found on server")
+        
+        return FileResponse(
+            path=str(audio_path),
+            media_type="audio/mpeg",
+            filename=filename
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error serving audio file: {str(e)}")
 
