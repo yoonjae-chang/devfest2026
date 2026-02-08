@@ -236,7 +236,7 @@ export default function EditorPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-6 px-6">
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-6 px-6">
         <p className="text-gray-600">{error}</p>
         <Link href="/studio">
           <Button>Convert MP3 to MIDI first</Button>
@@ -247,14 +247,14 @@ export default function EditorPage() {
 
   if (!midi) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <p className="text-gray-600">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen mt-6 bg-gray-100 text-gray-900 flex flex-col">
       <header className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/studio">

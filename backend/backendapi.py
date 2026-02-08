@@ -10,6 +10,7 @@ import os
 from routers.generate_schema import generate_router
 from routers.customize_schema import customize_router
 from routers.generate_music import generate_music_router
+from routers.generate_album_cover import generate_album_cover_router
 from mp3_to_midi import router as mp3_to_midi_router
 from supabase import create_client, Client
 
@@ -26,6 +27,7 @@ app = FastAPI()
 app.include_router(generate_router)
 app.include_router(customize_router)
 app.include_router(generate_music_router)
+app.include_router(generate_album_cover_router)
 app.include_router(mp3_to_midi_router)
 
 app.add_middleware(
@@ -74,6 +76,21 @@ async def download_run_music_zip(run_id: str, user: dict = Depends(get_current_u
             audio_filename = row.get("audio_filename")
             if not audio_filename:
                 continue
+            
+            storage_path = row.get("storage_path")
+            
+            # Try to get from Supabase storage first
+            if storage_path:
+                try:
+                    file_data = supabase.storage.from_("music").download(storage_path)
+                    if file_data:
+                        zf.writestr(audio_filename, file_data)
+                        continue
+                except Exception as e:
+                    print(f"Error downloading {audio_filename} from storage: {e}")
+                    # Fall back to local file
+            
+            # Fall back to local file
             audio_path = MUSIC_DIR / audio_filename
             if audio_path.exists():
                 zf.write(audio_path, audio_filename)

@@ -5,12 +5,12 @@ Generate music from a composition plan.
 import os
 import json
 import uuid
+import io
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import FileResponse
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from supabase import create_client, Client
 from elevenlabs import ElevenLabs
 from services.chatCompletion import chat_completion_json
@@ -19,6 +19,8 @@ import traceback
 from services.prompts import GENERATE_LYRICS_SYSTEM_PROMPT, GENERATE_LYRICS_USER_PROMPT, GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
+
+length_ms = 4000
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_SECRET_KEY")
@@ -80,7 +82,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         try:
             composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
                 prompt=prompt_for_elevenlabs,
-                music_length_ms=10000,
+                music_length_ms=length_ms,
             )
         except Exception as e:
             error_msg = str(e)
@@ -98,7 +100,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         try:
             track = elevenlabs.music.compose(
                 prompt=json.dumps(updated_plan),
-                music_length_ms=10000)
+                music_length_ms=length_ms)
             print("TRACK: ", track)
         except Exception as e:
             error_msg = str(e)
@@ -111,7 +113,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
                         raise HTTPException(status_code=400, detail=prompt_suggestion)
             raise HTTPException(status_code=500, detail=f"Error generating music: {error_msg}")
         
-        # Save audio file locally
+        # Save audio file locally (temporary, for backward compatibility)
         audio_filename = f"{composition_plan['title']}__{req.run_id}_{req.composition_plan_id}.mp3"
         audio_path = MUSIC_DIR / audio_filename
         print("AUDIO PATH: ", audio_path)       
@@ -120,6 +122,34 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             for chunk in track:
                 f.write(chunk)
         print("AUDIO FILE: \n\n", audio_filename)
+        
+        # Upload to Supabase storage
+        storage_path = None
+        try:
+            # Read the file content
+            with open(audio_path, "rb") as f:
+                file_content = f.read()
+            
+            # Upload to Supabase storage bucket 'music' under user_id folder
+            storage_file_path = f"{req.user_id}/{audio_filename}"
+            print(f"Uploading to Supabase storage: {storage_file_path}")
+            
+            # Upload the file (pass bytes directly, not BytesIO)
+            upload_response = supabase.storage.from_("music").upload(
+                path=storage_file_path,
+                file=file_content,
+                file_options={"content-type": "audio/mpeg", "upsert": "false"}
+            )
+            
+            if upload_response:
+                storage_path = storage_file_path
+                print(f"Successfully uploaded to Supabase storage: {storage_path}")
+            else:
+                print("Warning: Upload to Supabase storage returned None")
+        except Exception as e:
+            print(f"Error uploading to Supabase storage: {e}")
+            # Continue even if storage upload fails (for backward compatibility)
+        
         # Convert track metadata to dict if it's a model
         # Save to Supabase in a new table
         saved_id = None
@@ -135,6 +165,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
                 "composition_plan": updated_plan,
                 "audio_path": str(audio_path),
                 "audio_filename": audio_filename,
+                "storage_path": storage_path,
                 "cover_image_path": cover_image_path,
             }).execute()
             saved_id = db_response.data[0]["id"] if db_response.data else None
@@ -192,8 +223,8 @@ async def get_audio_file(filename: str, user: dict = Depends(get_current_user)):
         if not filename.endswith(".mp3"):
             raise HTTPException(status_code=400, detail="Invalid file format")
         
-        # Check if this file is associated with the user
-        response = supabase.table("final_compositions").select("user_id").eq("audio_filename", filename).execute()
+        # Check if this file is associated with the user and get storage_path
+        response = supabase.table("final_compositions").select("user_id, storage_path").eq("audio_filename", filename).execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Audio file not found")
@@ -201,7 +232,26 @@ async def get_audio_file(filename: str, user: dict = Depends(get_current_user)):
         if response.data[0]["user_id"] != user["user_id"]:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Serve the file
+        storage_path = response.data[0].get("storage_path")
+        
+        # Try to serve from Supabase storage first
+        if storage_path:
+            try:
+                # Download file from Supabase storage
+                file_data = supabase.storage.from_("music").download(storage_path)
+                
+                if file_data:
+                    # Create a temporary file response
+                    return Response(
+                        content=file_data,
+                        media_type="audio/mpeg",
+                        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                    )
+            except Exception as e:
+                print(f"Error downloading from Supabase storage: {e}")
+                # Fall back to local file if storage download fails
+        
+        # Fall back to local file if storage_path is not available
         audio_path = MUSIC_DIR / filename
         if not audio_path.exists():
             raise HTTPException(status_code=404, detail="Audio file not found on server")
