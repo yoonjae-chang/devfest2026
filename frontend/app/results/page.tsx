@@ -72,6 +72,7 @@ function ResultsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<"A" | "B" | null>(null);
 
   useEffect(() => {
     const loadCompositions = async () => {
@@ -185,6 +186,9 @@ function ResultsPageContent() {
       setIsProcessing(true);
       setError(null);
       
+      // Mark the selected version
+      setSelectedVersion(version);
+      
       // Determine which is better based on selection
       const composition_plan_1_better = version === "A";
       
@@ -192,34 +196,32 @@ function ResultsPageContent() {
       const betterPlanId = composition_plan_1_better ? compositionAId : compositionBId;
       const worsePlanId = composition_plan_1_better ? compositionBId : compositionAId;
       
-      // Call compare compositions API - this generates a new improved composition
-      // (The improved composition is saved but we don't use it in the comparison flow)
-      await backendApi.compareCompositions({
+      // Call compare compositions API - this generates a new improved composition based on the comparison
+      const improvedComposition = await backendApi.compareCompositions({
         composition_plan_1_id: compositionAId,
         composition_plan_2_id: compositionBId,
         composition_plan_1_better,
         run_id: runId,
-      });
+      }) as { id: number; composition_plan: CompositionPlan };
 
-      // Generate a new composition plan with the same parameters to replace the worse one
-      const paramsStr = sessionStorage.getItem("generationParams");
-      if (!paramsStr) {
-        throw new Error("Missing generation parameters");
+      // Update the non-selected version with the improved composition from the comparison
+      if (version === "A") {
+        // Keep A, replace B with improved version
+        setCompositionBId(improvedComposition.id);
+        const songDataB = compositionPlanToSongData(improvedComposition.composition_plan);
+        setSongB(songDataB);
+      } else {
+        // Keep B, replace A with improved version
+        setCompositionAId(improvedComposition.id);
+        const songDataA = compositionPlanToSongData(improvedComposition.composition_plan);
+        setSongA(songDataA);
       }
-      const params = JSON.parse(paramsStr);
       
-      await backendApi.generateCompositionPlan({
-        user_prompt: params.user_prompt,
-        styles: params.styles,
-        lyrics_exists: params.lyrics_exists,
-        run_id: runId,
-      });
-
-      // Reload the page to show the better plan and the new plan
-      router.push(`/results?run_id=${runId}`);
-      router.refresh();
+      // Reset selection after replacement
+      setSelectedVersion(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process selection");
+      setSelectedVersion(null);
     } finally {
       setIsProcessing(false);
     }
@@ -281,30 +283,37 @@ function ResultsPageContent() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 flex-1 min-h-0">
-            <div className="relative flex flex-col">
-              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" />
-              <div className="mt-4">
-                <button
-                  onClick={() => handleSelectVersion("A")}
-                  disabled={isProcessing}
-                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? "Processing..." : "Select Version A"}
-                </button>
-              </div>
+            <div 
+              className={`relative flex flex-col transition-all ${
+                selectedVersion === "A" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
+              }`}
+            >
+              <SongCard song={songA} onChange={setSongA} variantLabel="Version A" hideSelectButton={true} />
             </div>
-            <div className="relative flex flex-col">
-              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" />
-              <div className="mt-4">
-                <button
-                  onClick={() => handleSelectVersion("B")}
-                  disabled={isProcessing}
-                  className="w-full py-2.5 px-4 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? "Processing..." : "Select Version B"}
-                </button>
-              </div>
+            <div 
+              className={`relative flex flex-col transition-all ${
+                selectedVersion === "B" ? "ring-4 ring-blue-500 ring-offset-2 rounded-lg" : ""
+              }`}
+            >
+              <SongCard song={songB} onChange={setSongB} variantLabel="Version B" hideSelectButton={true} />
             </div>
+          </div>
+          
+          <div className="flex justify-center gap-4 shrink-0">
+            <button
+              onClick={() => handleSelectVersion("A")}
+              disabled={isProcessing || selectedVersion !== null}
+              className="px-6 py-3 text-base font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? "Processing..." : "Select Version A"}
+            </button>
+            <button
+              onClick={() => handleSelectVersion("B")}
+              disabled={isProcessing || selectedVersion !== null}
+              className="px-6 py-3 text-base font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? "Processing..." : "Select Version B"}
+            </button>
           </div>
         </div>
       </main>

@@ -56,15 +56,6 @@ export default function SongCard({
           onNegativeChange={(negativeStyles) => update({ negativeStyles })}
         />
       </div>
-      <div className="shrink-0 mt-4 pt-4 border-t border-gray-200">
-        <button
-          type="button"
-          className="w-full py-2.5 px-4 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-          aria-label={variantLabel ? `Select ${variantLabel}` : "Select this version"}
-        >
-          Select this version
-        </button>
-      </div>
     </article>  
   );
 }
