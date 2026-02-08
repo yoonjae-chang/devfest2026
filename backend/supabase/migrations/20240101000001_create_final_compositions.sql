@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS final_compositions (
     composition_plan_id BIGINT NOT NULL REFERENCES composition_plans(id) ON DELETE CASCADE,
     audio_path TEXT NOT NULL,
     audio_filename TEXT NOT NULL,
-    track_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -25,4 +24,3 @@ COMMENT ON COLUMN final_compositions.run_id IS 'Identifier for the workflow/sess
 COMMENT ON COLUMN final_compositions.composition_plan_id IS 'Reference to the composition plan used to generate this music';
 COMMENT ON COLUMN final_compositions.audio_path IS 'Local file path where the audio file is stored';
 COMMENT ON COLUMN final_compositions.audio_filename IS 'Filename of the audio file';
-COMMENT ON COLUMN final_compositions.track_metadata IS 'JSON metadata about the generated track (duration, etc.)';

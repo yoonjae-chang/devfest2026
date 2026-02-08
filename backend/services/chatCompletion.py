@@ -20,18 +20,18 @@ def chat_completion_json(system_prompt: str, user_prompt: str):
     client = OpenAI(api_key=api_key)
     
     try:
+        print("system_prompt: ", system_prompt)
+        print("user_prompt: ", user_prompt)
         response = client.chat.completions.create(
-            # model="gpt-4o",  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
-            model="gpt-4.1-nano",
+            model="gpt-4.1-nano",  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             response_format={"type": "json_object"}
         )
-        
+        print("response: ", response.choices[0].message.content)
         content = response.choices[0].message.content
-        print(response)
         if not content:
             raise ValueError("Empty response from OpenAI API")
         
