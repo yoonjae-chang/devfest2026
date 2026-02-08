@@ -82,7 +82,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 flex flex-col items-center py-12 sm:py-16">
+      <main className="flex-1 mt-12 flex min-h-screen flex-col items-center">
         <div className="w-full px-6 text-center mb-4">
           <div className="relative h-[120px] sm:h-[160px] w-full max-w-6xl mx-auto min-w-0 flex items-center justify-center">
             <div className="text-white text-5xl sm:text-6xl font-bold leading-none tracking-tight flex flex-wrap items-center justify-center gap-x-1">
