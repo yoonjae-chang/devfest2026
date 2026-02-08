@@ -3,10 +3,12 @@
 import EditableTitle from "./EditableTitle";
 import LyricsEditor from "./LyricsEditor";
 import StylesEditor from "./StylesEditor";
+import EditableDescription from "./EditableDescription";
 
 export type SongData = {
   title: string;
   lyrics: string;
+  description: string;
   positiveStyles: string;
   negativeStyles: string;
 };
@@ -41,6 +43,11 @@ export default function SongCard({
           scrollable
         />
       </div>
+      <EditableDescription
+          value={song.description}
+          onChange={(description) => update({ description })}
+          scrollable
+        />
       <div className="shrink-0 flex flex-col gap-4 mt-4">
         <StylesEditor
           positiveValue={song.positiveStyles}
@@ -58,6 +65,6 @@ export default function SongCard({
           Select this version
         </button>
       </div>
-    </article>
+    </article>  
   );
 }

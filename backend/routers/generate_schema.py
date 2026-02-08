@@ -45,24 +45,22 @@ async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depen
     if req.lyrics_exists:
         plan = chat_completion_json(
             system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            - title: title of the composition
             - positiveGlobalStyles: list of styles that are positive for the composition
             - negativeGlobalStyles: list of styles that are negative for the composition
-            - lyrics: lyrics in order of sections in the following format:
-                - sectionName: name of the section
-                - lines: list of lines in the section
             - description: description of the composition
+            - lyrics: lyrics in order of sections in the following format:
+                - only do Verse 1 and Chorus
             Here is an example of an excellent description:
             'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
-            Here is an example of a composition schema:
+            Here is an example of a composition schema: (THERE SHOULD BE 5 Fields in the JSON Object)
             {{
+                "title": "title of the composition",
                 "positiveGlobalStyles": ["happy", "upbeat"],
                 "negativeGlobalStyles": ["sad", "depressing"],
                 "lyrics": {{
                     "Verse 1": "Verse 1 lines",
-                    "Verse 2": "Verse 2 lines",
                     "Chorus": "Chorus lines",
-                    "Bridge": "Bridge lines",
-                    "Outro": "Outro lines"
                 }},
                 "description": "a description of the composition", 
             }}
@@ -72,13 +70,15 @@ async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depen
     else:
         plan = chat_completion_json(
             system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
+            - title: title of the composition
             - positiveGlobalStyles: list of styles that are positive for the composition
             - negativeGlobalStyles: list of styles that are negative for the composition
             - description: description of the composition
             Here is an example of an excellent description:
             'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
-            Here is an example of a composition schema:
+            Here is an example of a composition schema: (THERE SHOULD BE 4 Fields in the JSON Object)
             {{
+                "title": "title of the composition",
                 "positiveGlobalStyles": ["happy", "upbeat"],
                 "negativeGlobalStyles": ["sad", "depressing"],
                 "description": "a description of the composition", 
@@ -105,3 +105,33 @@ async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depen
         saved_id = None
 
     return {"id": saved_id, "composition_plan": plan, "user_id": req.user_id, "run_id": req.run_id}
+
+
+@generate_router.get("/composition-plan/{composition_id}")
+async def get_composition_plan(composition_id: int, user: dict = Depends(get_current_user)):
+    """Get a composition plan by ID. Only returns if it belongs to the authenticated user."""
+    try:
+        response = supabase.table("composition_plans").select("*").eq("id", composition_id).eq("user_id", user["user_id"]).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Composition plan not found")
+        
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching composition plan: {str(e)}")
+
+
+@generate_router.get("/composition-plans/run/{run_id}")
+async def get_composition_plans_by_run(run_id: str, user: dict = Depends(get_current_user)):
+    """Get all composition plans for a specific run_id. Only returns plans belonging to the authenticated user."""
+    try:
+        response = supabase.table("composition_plans").select("*").eq("run_id", run_id).eq("user_id", user["user_id"]).order("created_at").execute()
+        
+        if not response.data:
+            return []
+        
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching composition plans: {str(e)}")
