@@ -82,15 +82,18 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         negativeGlobalStyles = str(composition_plan['negativeGlobalStyles'])
 
         prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles)
-        try:
-            composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
-                prompt=prompt_for_elevenlabs,
-                music_length_ms=length_ms,
-            )
-        except Exception as e:
-            error_msg = str(e)
-            print("ERROR: ", error_msg)
-            raise HTTPException(status_code=500, detail=f"Error creating composition plan from ElevenLabs: {error_msg}")
+        
+        while False:
+            try:
+                composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
+                    prompt=prompt_for_elevenlabs,
+                    music_length_ms=length_ms,
+                )
+                break
+            except Exception as e:
+                error_msg = str(e)
+                print("ERROR: ", error_msg)
+                prompt_for_elevenlabs = e.body['detail']['data']['prompt_suggestion']
         # Convert composition_plan_elevenlabs to dict if it's a MusicPrompt object
         if not isinstance(composition_plan_elevenlabs, dict):
             composition_plan_elevenlabs = composition_plan_elevenlabs.model_dump()
@@ -100,21 +103,25 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         else:
             updated_plan = composition_plan_elevenlabs
         # Generate music using ElevenLabs
-        try:
-            track = elevenlabs.music.compose(
-                prompt=json.dumps(updated_plan),
-                music_length_ms=length_ms)
-            print("TRACK: ", track)
-        except Exception as e:
-            error_msg = str(e)
-            print("ERROR: ", error_msg)
-            # Try to extract prompt suggestion if available
-            if hasattr(e, 'body') and isinstance(e.body, dict):
-                if e.body.get('detail', {}).get('status') == 'bad_prompt':
-                    prompt_suggestion = e.body.get('detail', {}).get('data', {}).get('prompt_suggestion')
-                    if prompt_suggestion:
-                        raise HTTPException(status_code=400, detail=prompt_suggestion)
-            raise HTTPException(status_code=500, detail=f"Error generating music: {error_msg}")
+        i = 0
+        while False:
+            try:
+                i += 1
+                if i == 0:
+                    track = elevenlabs.music.compose(
+                        prompt=json.dumps(updated_plan),
+                        music_length_ms=length_ms)
+                else: 
+                    track = elevenlabs.music.compose(
+                        prompt=prompt_for_elevenlabs,
+                        music_length_ms=length_ms)
+                print("TRACK: ", track)
+                break
+            except Exception as e:
+                error_msg = str(e)
+                print("ERROR: ", error_msg)
+                # Try to extract prompt suggestion if available
+                prompt_for_elevenlabs = e.body['detail']['data']['prompt_suggestion']
         
         # Save audio file locally (temporary, for backward compatibility)
         audio_filename = f"{composition_plan['title']}__{req.run_id}_{req.composition_plan_id}.mp3"
@@ -157,7 +164,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         # Use a seed based on title to get a consistent image for the same song
         import hashlib
         seed = int(hashlib.md5(title.encode()).hexdigest()[:8], 16) % 1000
-        cover_image_url = f"https://picsum.photos/200"
+        cover_image_url = f"https://picsum.photos/id/{seed}/200"
         print(f"Using placeholder album cover: {cover_image_url}")
         
         # Convert track metadata to dict if it's a model

@@ -106,48 +106,48 @@ async def get_portfolio_item(item_id: str, user: dict = Depends(get_current_user
 
 @portfolio_router.post("/items", response_model=PortfolioItemResponse)
 async def create_portfolio_item(
+    audio_file: UploadFile = File(..., alias="audio_file"),
     item_json: str = Form(...),
-    audio_file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
-    """Create a new portfolio item and upload the audio file to storage."""
+    """Create a new portfolio item with an uploaded file."""
     try:
-        # Parse the JSON item data
+        # Parse the JSON data
         item_data = json.loads(item_json)
-        item = PortfolioItemCreate(**item_data)
         
-        # Upload audio file to Supabase Storage
-        storage_path = f"{user['user_id']}/{item.id}/{item.file_name}"
+        # Generate unique storage path
+        file_extension = Path(audio_file.filename).suffix if audio_file.filename else ""
+        storage_filename = f"{item_data['id']}{file_extension}"
+        storage_path = f"{user['user_id']}/{storage_filename}"
         
         # Read file content
         file_content = await audio_file.read()
         
-        # Upload to storage
+        # Upload to Supabase Storage
         supabase.storage.from_(PORTFOLIO_AUDIO_BUCKET).upload(
-            storage_path,
-            file_content,
-            file_options={"content-type": audio_file.content_type or "audio/mpeg"},
+            path=storage_path,
+            file=file_content,
+            file_options={
+                "content-type": audio_file.content_type or "application/octet-stream",
+                "upsert": "false"
+            }
         )
         
-        # Get public URL for the file (if bucket is public) or signed URL
-        # For now, we'll store the path and generate URLs on the frontend
-        file_url = supabase.storage.from_(PORTFOLIO_AUDIO_BUCKET).get_public_url(storage_path)
-        
-        # Insert into database
+        # Create database record
         db_item = {
-            "id": item.id,
+            "id": item_data["id"],
             "user_id": user["user_id"],
-            "color_class": item.color_class,
-            "title": item.title,
-            "duration": item.duration,
-            "featured": item.featured,
-            "description": item.description,
-            "lyrics": item.lyrics,
-            "file_name": item.file_name,
-            "file_size": item.file_size,
-            "file_last_modified": item.file_last_modified,
+            "color_class": item_data["color_class"],
+            "title": item_data["title"],
+            "duration": item_data.get("duration"),
+            "featured": item_data.get("featured", False),
+            "description": item_data.get("description", ""),
+            "lyrics": item_data.get("lyrics", ""),
+            "file_name": item_data["file_name"],
+            "file_size": item_data["file_size"],
+            "file_last_modified": item_data["file_last_modified"],
             "storage_path": storage_path,
-            "cover_image_url": item.cover_image_url,
+            "cover_image_url": item_data.get("cover_image_url"),
         }
         
         response = supabase.table("portfolio_items").insert(db_item).execute()
@@ -156,6 +156,8 @@ async def create_portfolio_item(
             raise HTTPException(status_code=500, detail="Failed to create portfolio item")
         
         return response.data[0]
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in item_json")
     except HTTPException:
         raise
     except Exception as e:
@@ -170,18 +172,56 @@ async def update_portfolio_item(
 ):
     """Update a portfolio item."""
     try:
+        # First, get the current portfolio item to find the filename
+        current_item_response = (
+            supabase.table("portfolio_items")
+            .select("file_name")
+            .eq("id", item_id)
+            .eq("user_id", user["user_id"])
+            .single()
+            .execute()
+        )
+        
+        if not current_item_response.data:
+            raise HTTPException(status_code=404, detail="Portfolio item not found")
+        
+        file_name = current_item_response.data.get("file_name")
+        
+        # Try to find matching final_composition by filename
+        final_composition = None
+        if file_name:
+            try:
+                comp_response = supabase.table("final_compositions").select("*").eq("audio_filename", file_name).eq("user_id", user["user_id"]).execute()
+                if comp_response.data:
+                    final_composition = comp_response.data[0]
+            except Exception as e:
+                print(f"Warning: Could not fetch final_composition: {e}")
+        
         # Build update dict with only provided fields
+        # Title, description, and lyrics MUST come from final_composition, not from request
         update_data = {}
-        if item_update.title is not None:
-            update_data["title"] = item_update.title
+        
+        # Title: always get from final_composition
+        if final_composition and final_composition.get("title"):
+            update_data["title"] = final_composition["title"]
+        
+        # Description: always get from final_composition
+        if final_composition:
+            composition_plan = final_composition.get("composition_plan")
+            if composition_plan and isinstance(composition_plan, dict) and composition_plan.get("description"):
+                update_data["description"] = str(composition_plan["description"])
+        
+        # Lyrics: always get from final_composition
+        if final_composition:
+            composition_plan = final_composition.get("composition_plan")
+            if composition_plan and isinstance(composition_plan, dict) and composition_plan.get("lyrics"):
+                update_data["lyrics"] = str(composition_plan["lyrics"])
+        
+        # Other fields can be updated normally from request
         if item_update.duration is not None:
             update_data["duration"] = item_update.duration
         if item_update.featured is not None:
             update_data["featured"] = item_update.featured
-        if item_update.description is not None:
-            update_data["description"] = item_update.description
-        if item_update.lyrics is not None:
-            update_data["lyrics"] = item_update.lyrics
         if item_update.color_class is not None:
             update_data["color_class"] = item_update.color_class
         if item_update.cover_image_url is not None:

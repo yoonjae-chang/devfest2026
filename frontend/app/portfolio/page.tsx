@@ -9,6 +9,8 @@ import { displayNameFromFilename } from "@/lib/utils";
 import { backendApi } from "@/lib/api";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
+const IMAGE_EXT = /\.(jpg|jpeg|png|gif|webp|svg)$/i;
+const VIDEO_EXT = /\.(mp4|webm|mov|avi)$/i;
 
 const PASTEL_COLORS = [
   "bg-sky-100",
@@ -35,8 +37,21 @@ interface PublishItem {
   cover_image_url?: string;
 }
 
-function filterMp3(fileList: FileList | File[]): File[] {
-  return Array.from(fileList).filter((f) => AUDIO_EXT.test(f.name));
+function filterFiles(fileList: FileList | File[]): File[] {
+  // Accept all file types
+  return Array.from(fileList);
+}
+
+function isAudioFile(file: File): boolean {
+  return AUDIO_EXT.test(file.name);
+}
+
+function isImageFile(file: File): boolean {
+  return IMAGE_EXT.test(file.name);
+}
+
+function isVideoFile(file: File): boolean {
+  return VIDEO_EXT.test(file.name);
 }
 
 function formatSize(bytes: number): string {
@@ -180,9 +195,9 @@ function PortfolioPageContent() {
     return () => clearTimeout(timeoutId);
   }, [items]);
 
-  // Load duration for items that don't have it yet
+  // Load duration for audio items that don't have it yet
   useEffect(() => {
-    const needDuration = items.filter((i) => i.duration === null);
+    const needDuration = items.filter((i) => i.duration === null && isAudioFile(i.file));
     if (needDuration.length === 0) return;
     let cancelled = false;
     needDuration.forEach((item) => {
@@ -212,7 +227,7 @@ function PortfolioPageContent() {
   });
 
   const handleAddFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = filterMp3(e.target.files || []);
+    const files = filterFiles(e.target.files || []);
     if (files.length === 0) {
       e.target.value = "";
       return;
@@ -242,12 +257,33 @@ function PortfolioPageContent() {
     });
     e.target.value = "";
 
-    // Generate album covers for each new item
+    // Generate album covers for audio files only
     for (const item of newItems) {
+      // Only generate covers for audio files
+      if (!isAudioFile(item.file)) {
+        // For image files, use the image itself as the cover
+        if (isImageFile(item.file)) {
+          setItems((prev) =>
+            prev.map((p) =>
+              p.id === item.id
+                ? { ...p, cover_image_url: URL.createObjectURL(item.file) }
+                : p
+            )
+          );
+        }
+        continue;
+      }
+      
       try {
+        // Add variation to ensure unique covers - use item ID hash and timestamp
+        const variation = `${item.id.slice(0, 8)}-${Date.now()}`;
+        const uniqueDescription = item.description 
+          ? `${item.description} [Unique variation: ${variation}]`
+          : `[Unique variation: ${variation}]`;
+        
         const coverResponse = await backendApi.generateAlbumCover({
           title: item.title,
-          description: item.description,
+          description: uniqueDescription,
         });
         
         // Update the item with the cover image URL
@@ -266,6 +302,13 @@ function PortfolioPageContent() {
   };
 
   const handlePlayClick = useCallback((item: PublishItem) => {
+    // Only handle audio files for playback
+    if (!isAudioFile(item.file)) {
+      // For non-audio files, open detail modal or download
+      setDetailItemId(item.id);
+      return;
+    }
+    
     if (playingId === item.id) {
       audioRef.current?.pause();
       setPlayingId(null);
@@ -361,19 +404,11 @@ function PortfolioPageContent() {
             <input
               ref={inputRef}
               type="file"
-              accept=".mp3,.wav,.flac,.ogg,.m4a"
+              accept="*"
               multiple
               onChange={handleAddFile}
               className="hidden"
             />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-400/90 text-white hover:bg-sky-400 active:scale-95 transition-all shadow-sm"
-              aria-label="Add release"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">
@@ -387,20 +422,44 @@ function PortfolioPageContent() {
                   <div className="relative">
                     <button
                       type="button"
-                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm border border-sky-200/50 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full overflow-hidden`}
-                      onClick={() => handlePlayClick(item)}
-                      title="Click to play"
+                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm cursor-pointer active:scale-[0.99] transition-all text-left w-full overflow-hidden`}
+                      onClick={() => {
+                        if (isImageFile(item.file)) {
+                          // For images, show in detail modal
+                          setDetailItemId(item.id);
+                        } else if (isVideoFile(item.file)) {
+                          // For videos, show in detail modal
+                          setDetailItemId(item.id);
+                        } else {
+                          // For audio, handle playback
+                          handlePlayClick(item);
+                        }
+                      }}
+                      title={isAudioFile(item.file) ? "Click to play" : "Click to view"}
                     >
                       {item.cover_image_url ? (
                         <img
-                          src={item.cover_image_url}
+                          src={item.cover_image_url && `${item.cover_image_url}?random=${Math.random()}`}
+                          alt={item.title}
+                          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                        />
+                      ) : isImageFile(item.file) ? (
+                        <img
+                          src={URL.createObjectURL(item.file)}
                           alt={item.title}
                           className="absolute inset-0 w-full h-full object-cover rounded-2xl"
                         />
                       ) : null}
-                      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl pointer-events-none">
-                        <Play className="w-10 h-10 text-white ml-0.5 drop-shadow-lg" />
-                      </span>
+                      {isAudioFile(item.file) && (
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity bg-black/20 rounded-2xl pointer-events-none">
+                          <Play className="w-10 h-10 text-white ml-0.5 drop-shadow-lg" />
+                        </span>
+                      )}
+                      {isVideoFile(item.file) && (
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity bg-black/20 rounded-2xl pointer-events-none">
+                          <Play className="w-10 h-10 text-white ml-0.5 drop-shadow-lg" />
+                        </span>
+                      )}
                     </button>
                     {item.featured && (
                       <span className="absolute top-2 right-2 rounded-full bg-sky-400/95 p-1.5 shadow-sm" title="Featured">
@@ -408,29 +467,11 @@ function PortfolioPageContent() {
                       </span>
                     )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-end gap-1">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); moveItem(item.id, "up"); }}
-                          disabled={indexInFull === 0}
-                          className="p-1.5 rounded-md bg-white/90 hover:bg-white shadow-sm disabled:opacity-40 transition-colors"
-                          aria-label="Move up"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); moveItem(item.id, "down"); }}
-                          disabled={indexInFull === items.length - 1}
-                          className="p-1.5 rounded-md bg-white/90 hover:bg-white shadow-sm disabled:opacity-40 transition-colors"
-                          aria-label="Move down"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
+                      <div className="flex items-center gap-1 opacity-100 transition-opacity">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}
-                          className="p-1.5 rounded-md bg-white/90 hover:bg-red-50 text-red-600 shadow-sm transition-colors"
+                          className="p-1.5 rounded-md bg-white/90 text-gray-700 shadow-sm transition-colors"
                           aria-label="Remove"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -452,59 +493,18 @@ function PortfolioPageContent() {
                       <button
                         type="button"
                         onClick={() => setEditingTitleId(item.id)}
-                        className="text-sm font-medium text-white truncate pr-1 w-full text-left hover:text-sky-200 rounded"
+                        className="text-sm font-medium text-white truncate pr-1 w-full text-left rounded"
                       >
                         {item.title || displayNameFromFilename(file.name)}
                       </button>
                     )}
-                    <div
-                      className={`absolute left-0 right-0 top-full z-10 mt-1 px-3 py-2 rounded-lg bg-gray-800 text-gray-100 text-xs transition-opacity shadow-lg min-w-[200px] ${
-                        editingDescriptionId === item.id
-                          ? "opacity-100 pointer-events-auto"
-                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
-                      }`}
-                      aria-hidden
-                    >
-                      <div className="space-y-1.5">
-                        <p className="font-medium text-white truncate">{file.name}</p>
-                        <p>Size: {formatSize(file.size)}</p>
-                        <p>Type: {getExtension(file.name)}</p>
-                        <p>Modified: {formatDate(file.lastModified)}</p>
-                        {item.duration != null && <p>Duration: {formatDuration(item.duration)}</p>}
-                        <div className="pt-1 border-t border-gray-600">
-                          <button
-                            type="button"
-                            className="text-sky-500 hover:text-sky-400"
-                            onClick={(e) => { e.stopPropagation(); updateItem(item.id, { featured: !item.featured }); }}
-                          >
-                            {item.featured ? "★ Featured" : "☆ Mark as featured"}
-                          </button>
-                        </div>
-                        {isEditingDesc ? (
-                          <textarea
-                            value={item.description}
-                            onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                            onBlur={() => setEditingDescriptionId(null)}
-                            placeholder="Add a short description..."
-                            className="w-full bg-gray-700 rounded p-1.5 text-white placeholder:text-gray-400 resize-none"
-                            rows={2}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingDescriptionId(item.id)}
-                            className="text-left text-gray-400 hover:text-white block w-full"
-                          >
-                            {item.description ? item.description : "Add description..."}
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  </div>
                 </div>
               );
             })}
           </div>
+        </div>
+      </div>
 
           {items.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-4">
@@ -514,22 +514,20 @@ function PortfolioPageContent() {
                 </div>
                 <p className="text-white font-semibold">Your portfolio is empty</p>
                 <p className="text-sm text-sky-100/80 mt-2">
-                  Add your first release to showcase your music. Upload an MP3 or other audio file to get started.
+                  Add your first release to showcase your work. Upload any file to get started.
                 </p>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="mt-6 px-5 py-2.5 rounded-full bg-sky-400/90 text-white text-sm font-medium hover:bg-sky-400 active:scale-[0.98] transition-all shadow-sm"
+                  className="mt-6 px-5 py-2.5 rounded-full bg-sky-400/90 text-white text-sm font-medium active:scale-[0.98] transition-all shadow-sm"
                 >
                   Add your first release
                 </button>
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {currentTrack && (
+      {currentTrack && isAudioFile(currentTrack.file) && (
         <footer className="fixed bottom-0 left-0 right-0 z-20 bg-black/30 backdrop-blur-md border-t border-white/15 text-white">
           {/* Progress bar - full width */}
           <div
@@ -538,7 +536,7 @@ function PortfolioPageContent() {
             aria-valuenow={duration > 0 ? (currentTime / duration) * 100 : 0}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="relative h-1 w-full cursor-pointer group/progress bg-white/20 hover:h-1.5 transition-[height]"
+            className="relative h-1 w-full cursor-pointer bg-white/20 transition-[height]"
             onClick={handleSeek}
           >
             <div
@@ -546,7 +544,7 @@ function PortfolioPageContent() {
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-sky-400 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-sky-400 opacity-0 shadow-md transition-opacity pointer-events-none"
               style={{ left: `calc(${progress}% - 6px)` }}
             />
           </div>
@@ -579,7 +577,7 @@ function PortfolioPageContent() {
                 <button
                   type="button"
                   onClick={toggleBarPlayPause}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-white hover:bg-white/30 hover:scale-105 active:scale-95 transition-all shadow-sm"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-white active:scale-95 transition-all shadow-sm"
                   aria-label={playingId === currentTrack.id ? "Pause" : "Play"}
                 >
                   {playingId === currentTrack.id ? (
@@ -601,7 +599,7 @@ function PortfolioPageContent() {
               <button
                 type="button"
                 onClick={() => setIsMuted((m) => !m)}
-                className="p-1.5 rounded-full text-sky-200/80 hover:text-white transition-colors"
+                className="p-1.5 rounded-full text-sky-200/80 transition-colors"
                 aria-label={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? (
@@ -647,7 +645,19 @@ function PortfolioPageContent() {
             >
               {/* Header */}
               <div className="relative h-64 sm:h-80 overflow-hidden">
-                {detailItem.cover_image_url ? (
+                {isImageFile(detailItem.file) ? (
+                  <img
+                    src={URL.createObjectURL(detailItem.file)}
+                    alt={detailItem.title}
+                    className="w-full h-full object-contain bg-gray-800"
+                  />
+                ) : isVideoFile(detailItem.file) ? (
+                  <video
+                    src={URL.createObjectURL(detailItem.file)}
+                    className="w-full h-full object-contain bg-gray-800"
+                    controls
+                  />
+                ) : detailItem.cover_image_url ? (
                   <img
                     src={detailItem.cover_image_url}
                     alt={detailItem.title}
@@ -663,7 +673,7 @@ function PortfolioPageContent() {
                     setDetailItemId(null);
                     setEditingLyrics(false);
                   }}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+                  className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white transition-colors z-10"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -672,9 +682,14 @@ function PortfolioPageContent() {
                   <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">
                     {detailItem.title || displayNameFromFilename(detailItem.file.name)}
                   </h2>
-                  {detailItem.duration != null && (
+                  {detailItem.duration != null && isAudioFile(detailItem.file) && (
                     <p className="text-white/70 text-sm mt-1">
                       {formatDuration(detailItem.duration)}
+                    </p>
+                  )}
+                  {!isAudioFile(detailItem.file) && (
+                    <p className="text-white/70 text-sm mt-1">
+                      {formatSize(detailItem.file.size)} • {getExtension(detailItem.file.name)}
                     </p>
                   )}
                 </div>
@@ -698,7 +713,7 @@ function PortfolioPageContent() {
                   ) : (
                     <div
                       onClick={() => setEditingDescriptionId(detailItem.id)}
-                      className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[60px] cursor-text hover:bg-gray-800/70 transition-colors"
+                      className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[60px] cursor-text transition-colors"
                     >
                       {detailItem.description || (
                         <span className="text-gray-500 italic">Click to add a description...</span>
@@ -707,61 +722,74 @@ function PortfolioPageContent() {
                   )}
                 </div>
 
-                {/* Lyrics */}
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Lyrics</h3>
-                  {editingLyrics ? (
-                    <textarea
-                      value={tempLyrics}
-                      onChange={(e) => setTempLyrics(e.target.value)}
-                      onBlur={() => {
-                        updateItem(detailItem.id, { lyrics: tempLyrics });
-                        setEditingLyrics(false);
-                      }}
-                      placeholder="Add lyrics..."
-                      className="w-full bg-gray-800 rounded-lg p-4 text-white placeholder:text-gray-400 resize-none border border-gray-700 focus:border-sky-400 focus:outline-none font-mono text-sm leading-relaxed"
-                      rows={12}
-                      autoFocus
-                    />
-                  ) : (
-                    <div
-                      onClick={() => {
-                        setTempLyrics(detailItem.lyrics || "");
-                        setEditingLyrics(true);
-                      }}
-                      className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[200px] cursor-text hover:bg-gray-800/70 transition-colors whitespace-pre-wrap font-mono text-sm leading-relaxed"
-                    >
-                      {detailItem.lyrics || (
-                        <span className="text-gray-500 italic">Click to add lyrics...</span>
-                      )}
-                    </div>
-                  )}
+                {/* Lyrics - only for audio files */}
+                {isAudioFile(detailItem.file) && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Lyrics</h3>
+                    {editingLyrics ? (
+                      <textarea
+                        value={tempLyrics}
+                        onChange={(e) => setTempLyrics(e.target.value)}
+                        onBlur={() => {
+                          updateItem(detailItem.id, { lyrics: tempLyrics });
+                          setEditingLyrics(false);
+                        }}
+                        placeholder="Add lyrics..."
+                        className="w-full bg-gray-800 rounded-lg p-4 text-white placeholder:text-gray-400 resize-none border border-gray-700 focus:border-sky-400 focus:outline-none font-mono text-sm leading-relaxed"
+                        rows={12}
+                        autoFocus
+                      />
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setTempLyrics(detailItem.lyrics || "");
+                          setEditingLyrics(true);
+                        }}
+                        className="bg-gray-800/50 rounded-lg p-4 text-gray-200 min-h-[200px] cursor-text transition-colors whitespace-pre-wrap font-mono text-sm leading-relaxed"
+                      >
+                        {detailItem.lyrics || (
+                          <span className="text-gray-500 italic">Click to add lyrics...</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* File Info */}
+                <div className="pt-4 border-t border-gray-700">
+                  <div className="space-y-2 text-sm text-gray-400">
+                    <p><span className="text-gray-500">File:</span> {detailItem.file.name}</p>
+                    <p><span className="text-gray-500">Size:</span> {formatSize(detailItem.file.size)}</p>
+                    <p><span className="text-gray-500">Type:</span> {detailItem.file.type || getExtension(detailItem.file.name)}</p>
+                  </div>
                 </div>
 
-                {/* Play Button */}
-                <div className="pt-4 border-t border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handlePlayClick(detailItem);
-                      setDetailItemId(null);
-                      setEditingLyrics(false);
-                    }}
-                    className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium transition-colors"
-                  >
-                    {playingId === detailItem.id ? (
-                      <>
-                        <Pause className="w-5 h-5" />
-                        <span>Pause</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-5 h-5 ml-0.5" />
-                        <span>Play Track</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                {/* Play/View Button */}
+                {isAudioFile(detailItem.file) && (
+                  <div className="pt-4 border-t border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handlePlayClick(detailItem);
+                        setDetailItemId(null);
+                        setEditingLyrics(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg bg-sky-500 text-white font-medium transition-colors"
+                    >
+                      {playingId === detailItem.id ? (
+                        <>
+                          <Pause className="w-5 h-5" />
+                          <span>Pause</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-5 h-5 ml-0.5" />
+                          <span>Play Track</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
