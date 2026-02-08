@@ -81,9 +81,9 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         positiveGlobalStyles = str(composition_plan['positiveGlobalStyles'])
         negativeGlobalStyles = str(composition_plan['negativeGlobalStyles'])
 
-        genre_voice_example = get_genre_voice_example(positiveGlobalStyles)
-        prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles).replace("{genre_voice_example}", genre_voice_example)
-        while False:
+        prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles)
+        
+        while True:
             try:
                 composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
                     prompt=prompt_for_elevenlabs,
@@ -93,7 +93,10 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             except Exception as e:
                 error_msg = str(e)
                 print("ERROR: ", error_msg)
-                prompt_for_elevenlabs = e.body['detail']['data']['prompt_suggestion']
+                try:
+                    prompt_for_elevenlabs = e.body.get("detail", {}).get("data", {}).get("prompt_suggestion", prompt_for_elevenlabs)
+                except Exception:
+                    raise
         # Convert composition_plan_elevenlabs to dict if it's a MusicPrompt object
         if not isinstance(composition_plan_elevenlabs, dict):
             composition_plan_elevenlabs = composition_plan_elevenlabs.model_dump()
@@ -104,24 +107,26 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             updated_plan = composition_plan_elevenlabs
         # Generate music using ElevenLabs
         i = 0
-        while False:
+        while True:
             try:
-                i += 1
                 if i == 0:
                     track = elevenlabs.music.compose(
                         prompt=json.dumps(updated_plan),
                         music_length_ms=length_ms)
-                else: 
+                else:
                     track = elevenlabs.music.compose(
                         prompt=prompt_for_elevenlabs,
                         music_length_ms=length_ms)
                 print("TRACK: ", track)
                 break
             except Exception as e:
+                i += 1
                 error_msg = str(e)
                 print("ERROR: ", error_msg)
-                # Try to extract prompt suggestion if available
-                prompt_for_elevenlabs = e.body['detail']['data']['prompt_suggestion']
+                try:
+                    prompt_for_elevenlabs = e.body.get("detail", {}).get("data", {}).get("prompt_suggestion", prompt_for_elevenlabs)
+                except Exception:
+                    raise
         
         # Save audio file locally (temporary, for backward compatibility)
         audio_filename = f"{composition_plan['title']}__{req.run_id}_{req.composition_plan_id}.mp3"

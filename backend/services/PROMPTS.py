@@ -1,3 +1,29 @@
+GENRE_LYRICS_EXAMPLES = {
+    "Pop": '"Verse 1": ["I hopped off the plane at LAX", "With a dream and my cardigan", "Welcome to the land of fame excess (whoa)", "Am I gonna fit in?"], "Chorus": ["So, I put my hands up", "They\'re playing my song, the butterflies fly away", "I\'m nodding my head like, yeah", "Moving my hips like, yeah"]',
+    "R&B": '"Verse 1": ["Took me out to the ballet", "You proposed, I went on the road", "You was feelin\' empty, so you left me", "Now I\'m stuck dealin\' with a deadbeat"], "Chorus": ["I don\'t wanna lose what\'s left of you", "How am I supposed to tell ya?", "I don\'t wanna see you with anyone but me", "Nobody gets me like you"]',
+    "Hip Hop": '"Verse 1": ["Made this here with all the ice on in the booth", "At the gate outside, when they pull up, they get me loose", "Yeah, Jump Out boys, that\'s Nike boys, hop in our coupes"], "Chorus": ["Hop in our coupes", "They get me loose", "That\'s Nike boys, hop in our coupes", "Made this here with all the ice on in the booth"]',
+    "EDM": '"Verse 1": ["Only, only", "Only trust two godspeeds", "Love me, love me", "You make it far too easy"], "Chorus": ["You make it far too easy", "Love me, love me", "Only trust two godspeeds", "Only, only"]',
+    "Classical": '"Verse 1": ["Upon the silvered moonlit stream", "The willows bend as in a dream", "Where echoes of the old refrain", "O melody of ages past"], "Chorus": ["O melody of ages past", "O melody of ages past", "O melody of ages past", "O melody of ages past"]',
+    "Indie": '"Verse 1": ["Coffee stains on Tuesday mornings", "You were always good at warning me about the cracks in things"], "Chorus": ["We don\'t have to figure out what the whole thing was about", "We don\'t have to figure out what the whole thing was about", "We don\'t have to figure out what the whole thing was about", "We don\'t have to figure out what the whole thing was about"]',
+    "Phonk": '"Verse 1": ["Goin\' through a thing, but I gotta snap back", "Give it all to God, it\'s the pistol, put the crack back", "Stayin\' on my job, dealin\' with haters with a jab slap", "Dealin\' with this mob, police watchin\', studio phone tapped"], "Chorus": ["Goin\' through a thing, but I gotta snap back", "Give it all to God, it\'s the pistol, put the crack back", "Stayin\' on my job, dealin\' with haters with a jab slap", "Dealin\' with this mob, police watchin\', studio phone tapped"]',
+    "Rock": '"Verse 1": ["We came to break the silence", "We came to burn the wire", "You never saw us coming"], "Chorus": ["We are the sound, kicking down the door tonight", "We are the sound, kicking down the door tonight", "We are the sound, kicking down the door tonight", "We are the sound, kicking down the door tonight"]',
+    "Jazz": '"Verse 1": ["The club was dim at half past two", "She asked me what I came to do", "I said I only came to listen"], "Chorus": ["So we sway, till the band has had its say", "So we sway, till the band has had its say", "So we sway, till the band has had its say", "So we sway, till the band has had its say"]',
+    "Country": '"Verse 1": ["Right now, he\'s probably up behind her with a pool-stick", "Showing her how to shoot a combo", "And he don\'t know"], "Chorus": ["Carved my name into his leather seats", "I dug my key into the side", "Of his pretty little souped up four-wheel drive", "Carved my name into his leather seats", "I took a Louisville Slugger to both headlights"]',
+    "Metal": '"Verse 1": ["Through the fire we march as one", "Eyes are fixed upon the sun", "Break the chains that hold the weak"], "Chorus": ["Rise again, from the ashes we ascend", "From the ashes we ascend", "Through the fire we march as one", "Rise again, we ascend"]',
+    "Folk": '"Verse 1": ["The river runs down to the mill", "The same old road is running still", "I walked it once when I was young"], "Chorus": ["And the wind will carry on, every verse of every song", "Every verse of every song", "The wind will carry on", "And the wind will carry on"]',
+}
+
+def get_genre_lyrics_example(styles: list[str]) -> str:
+    """Return an example lyrics snippet for the first matching genre, or a default."""
+    if not styles:
+        return GENRE_LYRICS_EXAMPLES["R&B"]
+    for s in styles:
+        key = s.strip()
+        if key in GENRE_LYRICS_EXAMPLES:
+            return GENRE_LYRICS_EXAMPLES[key]
+    return GENRE_LYRICS_EXAMPLES["R&B"]
+
+
 GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT = """
 You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
             - title: title of the composition
@@ -102,5 +128,6 @@ Integrate the lyrics into the plan and expand missing sections (e.g., Verse 2, B
 
 GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN = """
 Create a song titled {title} with a description of {description}
-The song should be a {positiveGlobalStyles} as positive global styles and {negativeGlobalStyles} as negative global styles song.
+The song should be a {positiveGlobalStyles} as styles to include and {negativeGlobalStyles} as styles to avoid.
+Vocal style: use smooth, sweet vocals for pop, R&B, EDM, indie, jazz, country, folk, classical; use harsh, powerful vocals for rock, phonk, and metal.
 """
