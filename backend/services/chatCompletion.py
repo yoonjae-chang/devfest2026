@@ -12,7 +12,7 @@ load_dotenv(dotenv_path=env_path)
 # Also try loading from current directory as fallback
 load_dotenv()
 
-def chat_completion_json(system_prompt: str, user_prompt: str):
+def chat_completion_json(system_prompt: str, user_prompt: str, model: str = "gpt-4o", temperature: float = 0.7):
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables")
@@ -22,8 +22,10 @@ def chat_completion_json(system_prompt: str, user_prompt: str):
     try:
         print("system_prompt: ", system_prompt)
         print("user_prompt: ", user_prompt)
+        # model = "gpt-4.1-nano"
         response = client.chat.completions.create(
-            model="gpt-4.1-nano",  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
+            model=model,  # Using gpt-4o (latest model) instead of invalid "gpt-4.1"
+            temperature=temperature,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
