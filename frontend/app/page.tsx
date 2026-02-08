@@ -110,7 +110,7 @@ export default function Home() {
         </div>
 
         <div className="w-full max-w-2xl flex flex-col items-center gap-8 px-6">
-          <div className="w-full rounded-2xl border border-white/20 bg-black/20 backdrop-blur-md shadow-xl p-6 space-y-6">
+          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl">
             <PromptInput value={prompt} onChange={setPrompt} />
 
             <div className="flex flex-col sm:flex-row sm:items-end gap-6">
