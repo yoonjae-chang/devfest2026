@@ -3,22 +3,23 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Plus, Play, Pause, Star, Trash2, ChevronUp, ChevronDown, Music2, Volume2, VolumeX } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const ARTIST_KEY = "portfolio_artist_name";
 const TAGLINE_KEY = "portfolio_tagline";
 
 const PASTEL_COLORS = [
-  "bg-pink-200",
-  "bg-rose-200",
-  "bg-amber-200",
-  "bg-lime-200",
-  "bg-emerald-200",
-  "bg-cyan-200",
+  "bg-sky-100",
+  "bg-blue-100",
+  "bg-indigo-100",
+  "bg-violet-100",
+  "bg-slate-200",
+  "bg-cyan-100",
   "bg-sky-200",
-  "bg-violet-200",
-  "bg-fuchsia-200",
-  "bg-orange-200",
+  "bg-blue-200",
+  "bg-teal-100",
+  "bg-slate-100",
 ];
 
 interface PublishItem {
@@ -60,6 +61,37 @@ function fileNameWithoutExt(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
+function storedToPublish(s: StoredPortfolioItem): PublishItem {
+  const file = new File([s.blob], s.fileName, {
+    type: s.blob.type,
+    lastModified: s.fileLastModified,
+  });
+  return {
+    id: s.id,
+    file,
+    colorClass: s.colorClass,
+    title: s.title,
+    duration: s.duration,
+    featured: s.featured,
+    description: s.description,
+  };
+}
+
+function publishToStored(p: PublishItem): StoredPortfolioItem {
+  return {
+    id: p.id,
+    colorClass: p.colorClass,
+    title: p.title,
+    duration: p.duration,
+    featured: p.featured,
+    description: p.description,
+    blob: p.file,
+    fileName: p.file.name,
+    fileSize: p.file.size,
+    fileLastModified: p.file.lastModified,
+  };
+}
+
 export default function PortfolioPage() {
   const [artistName, setArtistName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -74,6 +106,28 @@ export default function PortfolioPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+
+  // Load portfolio items from IndexedDB on mount
+  const hasLoadedRef = useRef(false);
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    loadPortfolioItems()
+      .then((stored) => {
+        hasLoadedRef.current = true;
+        const parsed = stored.map(storedToPublish);
+        if (parsed.length > 0) setItems(parsed);
+      })
+      .catch(() => {
+        hasLoadedRef.current = true;
+      });
+  }, []);
+
+  // Persist items to IndexedDB whenever they change (skip until initial load is done)
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    const stored = items.map(publishToStored);
+    savePortfolioItems(stored).catch(() => {});
+  }, [items]);
 
   // Persist artist name and tagline
   useEffect(() => {
@@ -268,7 +322,7 @@ export default function PortfolioPage() {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-900 text-white hover:bg-gray-800 active:scale-95 transition-all shadow-sm"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 text-white hover:bg-sky-600 active:scale-95 transition-all shadow-sm"
               aria-label="Add release"
             >
               <Plus className="w-5 h-5" />
@@ -287,7 +341,7 @@ export default function PortfolioPage() {
                     <button
                       type="button"
                       onClick={() => handlePlayClick(item)}
-                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-md border border-white/60 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full`}
+                      className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm border border-sky-200/50 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full`}
                       title="Click to play"
                     >
                       <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 rounded-2xl">
@@ -295,8 +349,8 @@ export default function PortfolioPage() {
                       </span>
                     </button>
                     {item.featured && (
-                      <span className="absolute top-2 right-2 rounded-full bg-amber-400/95 p-1.5 shadow-sm" title="Featured">
-                        <Star className="w-4 h-4 text-amber-900" fill="currentColor" />
+                      <span className="absolute top-2 right-2 rounded-full bg-sky-400/95 p-1.5 shadow-sm" title="Featured">
+                        <Star className="w-4 h-4 text-sky-900" fill="currentColor" />
                       </span>
                     )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-end gap-1">
@@ -366,7 +420,7 @@ export default function PortfolioPage() {
                         <div className="pt-1 border-t border-gray-600">
                           <button
                             type="button"
-                            className="text-amber-300 hover:text-amber-200"
+                            className="text-sky-500 hover:text-sky-400"
                             onClick={(e) => { e.stopPropagation(); updateItem(item.id, { featured: !item.featured }); }}
                           >
                             {item.featured ? "★ Featured" : "☆ Mark as featured"}
@@ -400,9 +454,9 @@ export default function PortfolioPage() {
 
           {items.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-4">
-              <div className="rounded-2xl bg-white border border-gray-200/80 shadow-sm p-8 max-w-sm">
-                <div className="rounded-full bg-gray-100 p-5 mb-5 inline-flex">
-                  <Music2 className="w-10 h-10 text-gray-500" />
+              <div className="rounded-2xl bg-white border border-sky-200/60 shadow-sm p-8 max-w-sm">
+                <div className="rounded-full bg-sky-100 p-5 mb-5 inline-flex">
+                  <Music2 className="w-10 h-10 text-sky-600" />
                 </div>
                 <p className="text-gray-800 font-semibold">Your portfolio is empty</p>
                 <p className="text-sm text-gray-500 mt-2">
@@ -411,7 +465,7 @@ export default function PortfolioPage() {
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="mt-6 px-5 py-2.5 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 active:scale-[0.98] transition-all shadow-sm"
+                  className="mt-6 px-5 py-2.5 rounded-full bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 active:scale-[0.98] transition-all shadow-sm"
                 >
                   Add your first release
                 </button>
@@ -422,7 +476,7 @@ export default function PortfolioPage() {
       </div>
 
       {currentTrack && (
-        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-[#0d0d0d] text-white shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
+        <footer className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-sky-200/60 text-gray-900 shadow-[0_-4px_24px_rgba(14,165,233,0.08)]">
           {/* Progress bar - full width */}
           <div
             ref={progressBarRef}
@@ -430,15 +484,15 @@ export default function PortfolioPage() {
             aria-valuenow={duration > 0 ? (currentTime / duration) * 100 : 0}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="relative h-1 w-full cursor-pointer group/progress bg-white/10 hover:h-1.5 transition-[height]"
+            className="relative h-1 w-full cursor-pointer group/progress bg-sky-100 hover:h-1.5 transition-[height]"
             onClick={handleSeek}
           >
             <div
-              className="h-full bg-white transition-[width] duration-75 rounded-r"
+              className="h-full bg-sky-500 transition-[width] duration-75 rounded-r"
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white opacity-0 group-hover/progress:opacity-100 shadow transition-opacity pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-sky-500 opacity-0 group-hover/progress:opacity-100 shadow-md transition-opacity pointer-events-none"
               style={{ left: `calc(${progress}% - 6px)` }}
             />
           </div>
@@ -447,14 +501,14 @@ export default function PortfolioPage() {
             {/* Left: track info */}
             <div className="flex items-center gap-3 min-w-0 w-full sm:w-[30%] sm:max-w-[280px] order-2 sm:order-1">
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-md ring-1 ring-white/5`}
+                className={`flex-shrink-0 w-14 h-14 rounded-lg ${currentTrack.colorClass} shadow-sm ring-1 ring-sky-200/40 border border-white/80`}
                 aria-hidden
               />
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate text-white">
+                <p className="text-sm font-semibold truncate text-gray-900">
                   {currentTrack.title || fileNameWithoutExt(currentTrack.file.name)}
                 </p>
-                <p className="text-xs text-gray-400 truncate">
+                <p className="text-xs text-gray-500 truncate">
                   {artistName || "Artist"}
                 </p>
               </div>
@@ -466,7 +520,7 @@ export default function PortfolioPage() {
                 <button
                   type="button"
                   onClick={toggleBarPlayPause}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white text-[#0d0d0d] hover:scale-105 active:scale-95 transition-transform"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 text-white hover:bg-sky-600 hover:scale-105 active:scale-95 transition-all shadow-sm"
                   aria-label={playingId === currentTrack.id ? "Pause" : "Play"}
                 >
                   {playingId === currentTrack.id ? (
@@ -476,7 +530,7 @@ export default function PortfolioPage() {
                   )}
                 </button>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 tabular-nums">
+              <div className="flex items-center gap-2 text-xs text-gray-500 tabular-nums">
                 <span>{formatDuration(currentTime)}</span>
                 <span>/</span>
                 <span>{currentTrack.duration != null ? formatDuration(currentTrack.duration) : "0:00"}</span>
@@ -488,7 +542,7 @@ export default function PortfolioPage() {
               <button
                 type="button"
                 onClick={() => setIsMuted((m) => !m)}
-                className="p-1.5 rounded-full text-gray-400 hover:text-white transition-colors"
+                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
                 aria-label={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? (
@@ -508,7 +562,7 @@ export default function PortfolioPage() {
                   setVolume(v);
                   if (v > 0) setIsMuted(false);
                 }}
-                className="w-full h-1.5 accent-white bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer"
+                className="w-full h-1.5 accent-sky-500 bg-sky-100 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm"
               />
             </div>
           </div>

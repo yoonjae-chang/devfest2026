@@ -113,27 +113,30 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
         <div className="max-w-lg w-full space-y-8">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
               <Music2 className="w-7 h-7" />
               Studio
             </h1>
-            <p className="text-gray-600">
+            <p className="text-white/90">
               Upload audio files to convert to MIDI, then edit in the editor.
             </p>
           </div>
 
           <div
+            className="rounded-2xl border border-white/20 bg-black/20 backdrop-blur-md shadow-xl p-6 space-y-6"
+          >
+          <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
               isDragging
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 hover:border-gray-400"
+                ? "border-sky-400/80 bg-sky-100/20 backdrop-blur-sm"
+                : "border-white/30 bg-white/5 hover:border-white/50 hover:bg-white/10"
             }`}
           >
             <input
@@ -156,6 +159,7 @@ export default function StudioPage() {
               <Button
                 variant="outline"
                 onClick={() => chooseInputRef.current?.click()}
+                className="border-white/40 text-white hover:bg-white/20 hover:text-white"
               >
                 Choose files
               </Button>
@@ -163,12 +167,13 @@ export default function StudioPage() {
                 variant="outline"
                 onClick={() => addInputRef.current?.click()}
                 disabled={files.length >= MAX_FILES}
+                className="border-white/40 text-white hover:bg-white/20 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add more
               </Button>
             </div>
-            <p className="text-sm text-slate-500 mt-3">
+            <p className="text-sm text-white/70 mt-3">
               or drag and drop audio files here
             </p>
             {files.length > 0 && (
@@ -176,20 +181,20 @@ export default function StudioPage() {
                 {files.map((f, i) => (
                   <div
                     key={`${f.name}-${i}`}
-                    className="flex items-center justify-between text-sm bg-slate-50 rounded px-3 py-2"
+                    className="flex items-center justify-between text-sm bg-white/10 border border-white/20 rounded-lg px-3 py-2 backdrop-blur-sm"
                   >
-                    <span className="truncate text-slate-700">{f.name}</span>
+                    <span className="truncate text-white/90">{f.name}</span>
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      className="text-slate-400 hover:text-red-600 p-1"
+                      className="text-white/60 hover:text-red-300 p-1 transition-colors"
                       aria-label="Remove file"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-white/60">
                   {files.length} / {MAX_FILES} files
                 </p>
               </div>
@@ -197,7 +202,7 @@ export default function StudioPage() {
           </div>
 
           {error && (
-            <div className="p-4 rounded-lg bg-red-50 text-red-700 text-sm">
+            <div className="p-4 rounded-lg bg-red-500/20 border border-red-400/30 text-red-100 text-sm backdrop-blur-sm">
               {error}
             </div>
           )}
@@ -206,6 +211,7 @@ export default function StudioPage() {
             <Button
               onClick={handleConvert}
               disabled={files.length === 0 || status === "converting"}
+              className="bg-white/90 text-gray-900 hover:bg-white border border-white/30"
             >
               {status === "converting" ? (
                 <>
@@ -219,12 +225,15 @@ export default function StudioPage() {
             {status === "success" && (
               <div className="flex flex-col items-center gap-2">
                 {convertedCount > 1 && (
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-white/90">
                     {convertedCount} files converted. Switch between them in the editor.
                   </p>
                 )}
                 <Link href="/editor">
-                  <Button variant="secondary">
+                  <Button
+                    variant="secondary"
+                    className="bg-white/20 text-white border-white/30 hover:bg-white/30 hover:text-white"
+                  >
                     Open in editor
                     <ArrowRight className="w-4 h-4" />
                   </Button>
@@ -233,9 +242,10 @@ export default function StudioPage() {
             )}
           </div>
 
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-white/70">
             Single-instrument tracks work best. Max 10 files, 50MB each.
           </p>
+          </div>
         </div>
       </main>
     </div>
