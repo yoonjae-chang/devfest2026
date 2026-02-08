@@ -16,9 +16,10 @@ type HeaderProps = {
 export default function Header({ children }: HeaderProps) {
   const pathname = usePathname();
   const isResultsPage = pathname?.startsWith("/results");
+  const isStudioPage = pathname?.startsWith("/studio");
   const isPortfolioPage = pathname?.startsWith("/portfolio");
   const isEditorPage = pathname?.startsWith("/editor");
-  const useNavy = isResultsPage;
+  const useNavy = isResultsPage || isStudioPage;
 
   const linkBase = "text-xl font-semibold drop-shadow-md transition-colors";
   const linkClass = useNavy

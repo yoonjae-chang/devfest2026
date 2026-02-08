@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Music2, Loader2, Plus, X, Download, Upload, ArrowRight, Play, Pause } from "lucide-react";
 import { backendApi } from "@/lib/api";
 import { appendPortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
+import { displayNameFromFilename } from "@/lib/utils";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
 const MAX_FILES = 10;
@@ -19,10 +20,6 @@ const PASTEL_COLORS = [
 function filterValidFiles(fileList: FileList | File[]): File[] {
   const arr = Array.from(fileList);
   return arr.filter((f) => AUDIO_EXT.test(f.name));
-}
-
-function fileNameWithoutExt(name: string): string {
-  return name.replace(/\.[^.]+$/, "");
 }
 
 function StudioPageContent() {
@@ -297,6 +294,37 @@ function StudioPageContent() {
       sessionStorage.setItem("midi_editor_name", allFiles[0].name);
       setConvertedCount(allFiles.length);
       setStatus("success");
+
+      // Auto-download: single .mid file or zip of multiple
+      if (allFiles.length === 1) {
+        const { name, data } = allFiles[0];
+        const binary = atob(data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "audio/midi" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name.endsWith(".mid") ? name : `${name}.mid`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+        for (const { name, data } of allFiles) {
+          const binary = atob(data);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          zip.file(name.endsWith(".mid") ? name : `${name}.mid`, bytes, { binary: true });
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "studio-midi-tracks.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
       setStatus("error");
@@ -319,7 +347,7 @@ function StudioPageContent() {
         newItems.push({
           id: `${file.name}-${file.size}-${file.lastModified}-${timestamp}-${i}`,
           colorClass: PASTEL_COLORS[i % PASTEL_COLORS.length],
-          title: fileNameWithoutExt(file.name),
+          title: displayNameFromFilename(file.name),
           duration: null,
           featured: false,
           description: "",
@@ -356,11 +384,11 @@ function StudioPageContent() {
       <main className="flex-1 flex flex-col items-center justify-center md:pt-28 pt-16 px-6 py-12">
         <div className="w-full max-w-2xl space-y-8">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+            <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-[#1e3a5f] drop-shadow-md">
               <Music2 className="w-7 h-7" />
               Studio
             </h1>
-            <p className="text-white/90 drop-shadow-sm">
+            <p className="text-[#1e3a5f]/90 drop-shadow-sm">
               Upload audio files to convert to MIDI, then edit in the editor.
             </p>
           </div>
@@ -463,7 +491,7 @@ function StudioPageContent() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center items-center mt-36 w-full">
             <Button
               onClick={handleDownloadMp3}
               disabled={files.length === 0}
@@ -475,7 +503,10 @@ function StudioPageContent() {
             </Button>
             {status === "success" ? (
               <Link href="/editor">
-                <Button className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800">
+                <Button
+                  variant="outline"
+                  className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900"
+                >
                   Go to editor
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -484,7 +515,8 @@ function StudioPageContent() {
               <Button
                 onClick={handleConvert}
                 disabled={files.length === 0 || status === "converting"}
-                className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-800 disabled:opacity-50"
+                variant="outline"
+                className="glass-button border-white/30 bg-white/20 text-gray-900 hover:bg-white/40 hover:text-gray-900 disabled:opacity-50"
               >
                 {status === "converting" ? (
                   <>
@@ -492,7 +524,10 @@ function StudioPageContent() {
                     Converting…
                   </>
                 ) : (
-                  "Convert to MIDI"
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Convert to MIDI
+                  </>
                 )}
               </Button>
             )}
@@ -532,11 +567,11 @@ export default function StudioPage() {
           <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
             <div className="w-full max-w-2xl space-y-8">
               <div className="text-center space-y-2">
-                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-[#1e3a5f] drop-shadow-md">
                   <Music2 className="w-7 h-7" />
                   Studio
                 </h1>
-                <p className="text-white/90 drop-shadow-sm">Loading...</p>
+                <p className="text-[#1e3a5f]/90 drop-shadow-sm">Loading...</p>
               </div>
             </div>
           </main>

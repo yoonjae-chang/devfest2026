@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Plus, Play, Pause, Star, Trash2, ChevronUp, ChevronDown, Music2, Volume2, VolumeX, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { loadPortfolioItems, savePortfolioItems, type StoredPortfolioItem } from "@/lib/portfolio-storage";
+import { displayNameFromFilename } from "@/lib/utils";
 import { backendApi } from "@/lib/api";
 
 const AUDIO_EXT = /\.(mp3|wav|flac|ogg|m4a)$/i;
@@ -57,10 +58,6 @@ function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function fileNameWithoutExt(name: string): string {
-  return name.replace(/\.[^.]+$/, "");
 }
 
 function storedToPublish(s: StoredPortfolioItem): PublishItem {
@@ -211,7 +208,7 @@ function PortfolioPageContent() {
     // First sort by featured status, then by title
     const featuredDiff = Number(b.featured) - Number(a.featured);
     if (featuredDiff !== 0) return featuredDiff;
-    return (a.title || fileNameWithoutExt(a.file.name)).localeCompare(b.title || fileNameWithoutExt(b.file.name));
+    return (a.title || displayNameFromFilename(a.file.name)).localeCompare(b.title || displayNameFromFilename(b.file.name));
   });
 
   const handleAddFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,7 +224,7 @@ function PortfolioPageContent() {
       const next = [...prev];
       for (const file of files) {
         const colorClass = PASTEL_COLORS[next.length % PASTEL_COLORS.length];
-        const title = fileNameWithoutExt(file.name);
+        const title = displayNameFromFilename(file.name);
         const newItem: PublishItem = {
           id: `${file.name}-${file.size}-${file.lastModified}-${Date.now()}`,
           file,
@@ -388,10 +385,11 @@ function PortfolioPageContent() {
               return (
                 <div key={item.id} className="group flex flex-col gap-2.5">
                   <div className="relative">
-                    <div
+                    <button
+                      type="button"
                       className={`relative aspect-square rounded-2xl ${item.colorClass} flex flex-col items-center justify-center p-4 shadow-sm border border-sky-200/50 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all text-left w-full overflow-hidden`}
-                      onClick={() => setDetailItemId(item.id)}
-                      title="Click for details"
+                      onClick={() => handlePlayClick(item)}
+                      title="Click to play"
                     >
                       {item.cover_image_url ? (
                         <img
@@ -403,7 +401,7 @@ function PortfolioPageContent() {
                       <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-2xl pointer-events-none">
                         <Play className="w-10 h-10 text-white ml-0.5 drop-shadow-lg" />
                       </span>
-                    </div>
+                    </button>
                     {item.featured && (
                       <span className="absolute top-2 right-2 rounded-full bg-sky-400/95 p-1.5 shadow-sm" title="Featured">
                         <Star className="w-4 h-4 text-sky-900" fill="currentColor" />
@@ -456,7 +454,7 @@ function PortfolioPageContent() {
                         onClick={() => setEditingTitleId(item.id)}
                         className="text-sm font-medium text-white truncate pr-1 w-full text-left hover:text-sky-200 rounded"
                       >
-                        {item.title || fileNameWithoutExt(file.name)}
+                        {item.title || displayNameFromFilename(file.name)}
                       </button>
                     )}
                     <div
@@ -570,7 +568,7 @@ function PortfolioPageContent() {
               )}
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate text-white">
-                  {currentTrack.title || fileNameWithoutExt(currentTrack.file.name)}
+                  {currentTrack.title || displayNameFromFilename(currentTrack.file.name)}
                 </p>
               </div>
             </div>
@@ -672,7 +670,7 @@ function PortfolioPageContent() {
                 </button>
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">
-                    {detailItem.title || fileNameWithoutExt(detailItem.file.name)}
+                    {detailItem.title || displayNameFromFilename(detailItem.file.name)}
                   </h2>
                   {detailItem.duration != null && (
                     <p className="text-white/70 text-sm mt-1">
