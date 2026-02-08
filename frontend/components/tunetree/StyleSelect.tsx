@@ -4,12 +4,17 @@ import { useEffect, useRef, useState } from "react";
 
 const GENRE_OPTIONS = [
   "Pop",
-  "Indie",
+  "R&B",
   "Hip Hop",
   "EDM",
   "Classical",
-  "Lo-fi",
-  "Cinematic",
+  "Indie",
+  "Phonk",
+  "Rock",
+  "Jazz",
+  "Country",
+  "Metal",
+  "Folk"
 ] as const;
 
 export type StyleOption = (typeof GENRE_OPTIONS)[number];
@@ -67,7 +72,7 @@ export default function StyleSelect({
           onClick={() => !disabled && setOpen((o) => !o)}
           disabled={disabled}
           onKeyDown={handleKeyDown}
-          className="w-full px-3 py-2 text-left text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black-500 focus:border-black-500 disabled:bg-gray-50 disabled:text-gray-500 flex items-center justify-between"
+          className="w-full px-3 py-2 text-left text-[#6B5A55] bg-white border border-white-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-white-500 focus:border-white-500 disabled:bg-gray-50 disabled:text-gray-500 flex items-center justify-between"
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label="Select genres"
@@ -76,7 +81,7 @@ export default function StyleSelect({
             {summary}
           </span>
           <svg
-            className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-[#6B5A55] shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -88,8 +93,9 @@ export default function StyleSelect({
 
         {open && (
           <div
-            className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white py-1 shadow-sm"
+            className="absolute z-50 mt-1 w-full min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
             role="listbox"
+            onClick={(e) => e.stopPropagation()}
           >
             {GENRE_OPTIONS.map((genre) => (
               <label
@@ -97,15 +103,16 @@ export default function StyleSelect({
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
                 role="option"
                 aria-selected={value.includes(genre)}
+                onClick={(e) => e.stopPropagation()}
               >
                 <input
                   type="checkbox"
                   checked={value.includes(genre)}
                   onChange={() => toggleGenre(genre)}
-                  className="h-4 w-4 rounded border-gray-300 text-black-500 focus:ring-black-500"
+                  className="h-4 w-4 rounded border-gray-300 accent-[#6B5A55] focus:ring-[#6B5A55]"
                   onClick={(e) => e.stopPropagation()}
                 />
-                <span className="text-gray-900">{genre}</span>
+                <span className="text-[#6B5A55]">{genre}</span>
               </label>
             ))}
           </div>

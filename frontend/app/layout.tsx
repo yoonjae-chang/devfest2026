@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "TuneTree – Make any song you can imagine",
   description: "Describe your idea and let TuneTree generate music.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 const geistSans = Geist({
