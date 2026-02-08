@@ -139,8 +139,21 @@ export default function Home() {
               />
             </div>
           </div>
+
         </div>
       </main>
+      <div className=" rounded-2xl xl:mt-40 mt-20 w-2/3 mx-auto shadow-xl mb-20">
+            <div className="aspect-video w-full overflow-hidden rounded-lg">
+              <iframe
+                src="https://www.youtube.com/embed/Ql3AjzM4Ltc"
+                title="YouTube video player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+
     </div>
   );
 }
