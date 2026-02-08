@@ -16,7 +16,13 @@ from supabase import create_client, Client
 
 from services.chatCompletion import chat_completion_json
 from services.auth import get_current_user
-
+from services.prompts import (
+    GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT,
+    GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_USER_PROMPT,
+    GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_SYSTEM_PROMPT,
+    GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_USER_PROMPT
+)
+     
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
 
@@ -42,49 +48,18 @@ async def generate_initial_schema(req: GenerateInitialSchema, user: dict = Depen
     if req.user_id != user["user_id"]:
         raise HTTPException(status_code=403, detail="User ID in request does not match authenticated user")
 
+    # Convert styles list to string for replacement
+    styles_str = ", ".join(req.styles) if req.styles else "None"
+    
     if req.lyrics_exists:
         plan = chat_completion_json(
-            system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
-            - title: title of the composition
-            - positiveGlobalStyles: list of styles that are positive for the composition
-            - negativeGlobalStyles: list of styles that are negative for the composition
-            - description: description of the composition
-            - lyrics: lyrics in order of sections in the following format:
-                - only do Verse 1 and Chorus
-            Here is an example of an excellent description:
-            'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
-            Here is an example of a composition schema: (THERE SHOULD BE 5 Fields in the JSON Object)
-            {{
-                "title": "title of the composition",
-                "positiveGlobalStyles": ["happy", "upbeat"],
-                "negativeGlobalStyles": ["sad", "depressing"],
-                "lyrics": {{
-                    "Verse 1": "Verse 1 lines",
-                    "Chorus": "Chorus lines",
-                }},
-                "description": "a description of the composition", 
-            }}
-            """,
-            user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles} \nLyrics exist: {req.lyrics_exists}"
+            system_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT,
+            user_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_USER_PROMPT.replace("{USER_PROMPT}", req.user_prompt).replace("{STYLES}", styles_str).replace("{LYRICS_EXISTS}", str(req.lyrics_exists))
         )
     else:
         plan = chat_completion_json(
-            system_prompt=f"""You are a music composer. You are given a user prompt, list of styles, and a boolean indicating if lyrics exist. You need to generate a composition schema for the user prompt. The composition schema should be a JSON object with the following fields:
-            - title: title of the composition
-            - positiveGlobalStyles: list of styles that are positive for the composition
-            - negativeGlobalStyles: list of styles that are negative for the composition
-            - description: description of the composition
-            Here is an example of an excellent description:
-            'A Contemporary R&B, Neo-Soul, Alternative R&B song with a melancholic, hazy, vulnerable mood and an underwater feel, perfect for a late-night drive. Use low-fi distorted sub-bass, muted electric guitar with chorus effect, warbly Rhodes piano, and crisp, dry trap-style drums at a slow tempo (70 BPM). Feature soulful and breathy female vocals with conversational delivery, complex vocal harmonies, slightly behind the beat rhythm, and emotive belts in the chorus, capturing a raw emotional vibe without referencing any specific artist. Include lyrics about introspection and emotional distance, with a track structure that starts with vinyl crackle and lo-fi guitar melody in the intro, minimalistic verses focused on bass and vocals, a lush chorus with layered harmonies and rising emotional intensity, and an outro fading into a low-pass filter and ambient static'
-            Here is an example of a composition schema: (THERE SHOULD BE 4 Fields in the JSON Object)
-            {{
-                "title": "title of the composition",
-                "positiveGlobalStyles": ["happy", "upbeat"],
-                "negativeGlobalStyles": ["sad", "depressing"],
-                "description": "a description of the composition", 
-            }}
-            """,
-            user_prompt=f"User prompt: {req.user_prompt}\nStyles: {req.styles}"
+            system_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_SYSTEM_PROMPT,
+            user_prompt=GENERATE_INITIAL_SCHEMA_SYSTEM_WITHOUT_LYRICS_USER_PROMPT.replace("{USER_PROMPT}", req.user_prompt).replace("{STYLES}", styles_str)
         )
 
     # Save to Supabase
