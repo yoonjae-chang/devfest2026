@@ -1,0 +1,8 @@
+.venv/
+*.env*
+!.env.example
+./venv/
+/.venv/
+./.venv/    
+.venv/  
+venv/

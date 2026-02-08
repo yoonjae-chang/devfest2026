@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ function fileNameWithoutExt(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
-export default function StudioPage() {
+function StudioPageContent() {
   const searchParams = useSearchParams();
   const runId = searchParams.get("run_id");
   const [files, setFiles] = useState<File[]>([]);
@@ -225,8 +225,8 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
+    <div className="flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center md:pt-28 pt-16 px-6 py-12">
         <div className="w-full max-w-2xl space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
@@ -238,7 +238,7 @@ export default function StudioPage() {
             </p>
           </div>
 
-          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl">
+          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl min-h-[400px]">
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -376,19 +376,12 @@ export default function StudioPage() {
               </Link>
             </div>
           )}
+          <div className="flex flex-wrap h-3 gap-3 justify-center">
+             {publishSuccess && (
+              <>Successfully published to portfolio!<Link className="ml-[-3px] underline text-sky-600 hover:text-sky-800" href="/portfolio?published=1">View portfolio</Link></>
+             )}
+          </div>
 
-          {publishSuccess && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-              <p className="text-green-800 text-sm mb-2">
-                {files.length === 1 ? "Track" : `${files.length} tracks`} added to your portfolio.
-              </p>
-              <Link href="/portfolio?published=1">
-                <Button variant="outline" size="sm" className="border-green-300 text-green-800 hover:bg-green-100">
-                  View portfolio
-                </Button>
-              </Link>
-            </div>
-          )}
 
           <p className="text-center text-sm text-gray-600">
             Single-instrument tracks work best. Max 10 files, 50MB each.
@@ -397,5 +390,29 @@ export default function StudioPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col">
+          <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
+            <div className="w-full max-w-2xl space-y-8">
+              <div className="text-center space-y-2">
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 text-white drop-shadow-md">
+                  <Music2 className="w-7 h-7" />
+                  Studio
+                </h1>
+                <p className="text-white/90 drop-shadow-sm">Loading...</p>
+              </div>
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <StudioPageContent />
+    </Suspense>
   );
 }

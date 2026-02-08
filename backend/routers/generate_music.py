@@ -112,7 +112,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             raise HTTPException(status_code=500, detail=f"Error generating music: {error_msg}")
         
         # Save audio file locally
-        audio_filename = f"{req.run_id}_{req.composition_plan_id}.mp3"
+        audio_filename = f"{composition_plan['title']}__{req.run_id}_{req.composition_plan_id}.mp3"
         audio_path = MUSIC_DIR / audio_filename
         print("AUDIO PATH: ", audio_path)       
         with open(audio_path, "wb") as f:

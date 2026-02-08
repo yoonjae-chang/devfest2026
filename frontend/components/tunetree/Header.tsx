@@ -29,8 +29,8 @@ export default function Header({ children }: HeaderProps) {
     : "text-sm text-white/90 hover:text-white drop-shadow-md transition-colors";
 
   const headerClass = isPortfolioPage
-    ? "glass-navbar"
-    : "bg-transparent";
+    ? "glass-navbar fixed top-0 left-0 right-0 z-50"
+    : "bg-transparent fixed top-0 left-0 right-0 z-50";
 
   return (
     <header className={headerClass}>
