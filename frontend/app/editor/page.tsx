@@ -192,7 +192,7 @@ export default function EditorPage() {
         <div className="max-w-5xl space-y-4">
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
             <h3 className="font-medium text-slate-800 mb-2">How to use</h3>
-            <ul className="text-sm text-slate-600 space-y-1">
+            <ul className="text-sm text-[#6B5A55] space-y-1">
               <li>• <strong>Play</strong> — Click Play to hear your MIDI. Click Stop to silence it.</li>
               <li>• <strong>Move notes</strong> — Click a note (blue bar), then drag left or right to change its timing.</li>
               <li>• <strong>Piano roll</strong> — Each row is a note (C4, D4, etc.). Time runs left to right in seconds.</li>

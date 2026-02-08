@@ -60,7 +60,7 @@ export default function StyleSelect({
 
   return (
     <div className="flex flex-col gap-1.5" ref={containerRef}>
-      <label className="text-sm font-medium text-gray-700">Genres</label>
+      <label className="text-sm font-medium text-[#6B5A55]">Genres</label>
       <div className="relative">
         <button
           type="button"

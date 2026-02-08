@@ -10,7 +10,7 @@ type PromptInputProps = {
 export default function PromptInput({
   value,
   onChange,
-  placeholder = "Describe the song you want to generate. This can include a general theme, lyrics, specific styles, or any other details you want to include...",
+  placeholder = "Describe the song you want to generate. Themes, lyrics, specific styles...",
   disabled = false,
 }: PromptInputProps) {
   return (
@@ -20,7 +20,7 @@ export default function PromptInput({
       placeholder={placeholder}
       disabled={disabled}
       rows={5}
-      className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg resize-y min-h-[120px] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black-500 focus:border-black-500 disabled:bg-gray-50 disabled:text-gray-500"
+      className="w-full px-4 py-3 text-gray-900 bg-white/95 border border-white/30 rounded-xl resize-y min-h-[120px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/40 disabled:bg-white/70 disabled:text-gray-500 backdrop-blur-sm"
       aria-label="Song description"
     />
   );
