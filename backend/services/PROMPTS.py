@@ -103,4 +103,4 @@ Integrate the lyrics into the plan and expand missing sections (e.g., Verse 2, B
 GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN = """
 Create a song titled {title} with a description of {description}
 The song should be a {positiveGlobalStyles} as positive global styles and {negativeGlobalStyles} as negative global styles song.
-""" 
+"""

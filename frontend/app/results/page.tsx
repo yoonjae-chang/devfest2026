@@ -270,10 +270,24 @@ function ResultsPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songB, compositionBId]);
 
+  const goToStudio = () => {
+    if (runId) router.push(`/studio?run_id=${encodeURIComponent(runId)}`);
+  };
+
   const handleGenerateMusic = async (version: "A" | "B") => {
     const compositionId = version === "A" ? compositionAId : compositionBId;
     if (!compositionId || !runId) {
       setError("Missing composition ID or run ID. Please try again.");
+      return;
+    }
+
+    // If we already generated for this version, just go to studio
+    if (version === "A" && generatedMusicA) {
+      goToStudio();
+      return;
+    }
+    if (version === "B" && generatedMusicB) {
+      goToStudio();
       return;
     }
 
@@ -301,6 +315,8 @@ function ResultsPageContent() {
           audio_filename: result.audio_filename,
         });
       }
+      // Redirect to studio so the generated track populates there
+      goToStudio();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate music");
     } finally {
@@ -444,6 +460,15 @@ function ResultsPageContent() {
             <p className="text-[#1e3a5f]/90 text-sm max-w-2xl mx-auto">
               Pick the version you like. We’ll regenerate the other based on your edits.
             </p>
+            {runId && (
+              <button
+                type="button"
+                onClick={goToStudio}
+                className="inline-block mt-2 text-sm font-medium text-[#1e3a5f] underline hover:no-underline cursor-pointer bg-transparent border-0"
+              >
+                Go to Studio — download or edit your generated tracks
+              </button>
+            )}
           </div>
 
           {error && (
@@ -477,7 +502,7 @@ function ResultsPageContent() {
                       disabled={isGeneratingMusicA || !compositionAId}
                       className="w-full py-2.5 px-4 text-sm font-medium text-navy-600 bg-blue-200 rounded-lg hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isGeneratingMusicA ? "Generating..." : "Continue to Editor"}
+                      {isGeneratingMusicA ? "Generating..." : "Continue to Studio"}
                     </button>
                     {generatedMusicA && (
                       <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -516,7 +541,7 @@ function ResultsPageContent() {
                       disabled={isGeneratingMusicB || !compositionBId}
                       className="w-full py-2.5 px-4 text-sm font-medium text-navy-600 bg-blue-200 rounded-lg hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isGeneratingMusicB ? "Generating..." : "Continue to Editor"}
+                      {isGeneratingMusicB ? "Generating..." : "Continue to Studio"}
                     </button>
                     {generatedMusicB && (
                       <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
