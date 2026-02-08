@@ -16,7 +16,7 @@ from elevenlabs import ElevenLabs
 from services.chatCompletion import chat_completion_json
 from services.auth import get_current_user
 import traceback
-
+from services.prompts import GENERATE_LYRICS_SYSTEM_PROMPT, GENERATE_LYRICS_USER_PROMPT, GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN
 env_path = Path("../.") / ".env.local"
 load_dotenv(dotenv_path=env_path)
 
@@ -43,28 +43,16 @@ MUSIC_DIR = Path(__file__).parent.parent / "music"
 MUSIC_DIR.mkdir(exist_ok=True)
 
 async def lyrics_substitution(composition_plan: dict, composition_plan_from_elevenlabs: dict):        
-        
-        print("\n\nCOMPOSITION PLAN FROM ELEVENLABS: ", composition_plan_from_elevenlabs)
-        print("\n\nCOMPOSITION PLAN: ", composition_plan)
+        composition_plan_from_elevenlabs_str = str(composition_plan_from_elevenlabs)
+        composition_plan_str = str(composition_plan)
+        lyrics_dictionary_str = str(composition_plan['lyrics'])
+        description_str = str(composition_plan['description'])
         # Use AI to substitute lyrics
-        system_prompt = f"""
-        I will provide a 'Composition Plan' and a 'Lyrics Dictionary'. 
-        Your task is to integrate the lyrics into the plan and expand missing sections (e.g., Verse 2, Bridge) based on the provided story and description.
-
-        ### RULES:
-        1. OUTPUT ONLY VALID JSON. Do not include preamble or explanations.
-        2. The output MUST match the keys and structure of the input 'Composition Plan' exactly.
-        3. If lyrics for a section are missing, generate them based on the Description: {composition_plan['description']}.
-
-        ### INPUT DATA (HAVE THE OUTPUT IN THE SAME FORMAT AS THE INPUT COMPOSITION PLAN):
-        Composition Plan: {composition_plan_from_elevenlabs}
-        Lyrics Dictionary: {composition_plan['lyrics']}
-        """        
-        user_prompt = f"""
-        Integrate the lyrics into the plan and expand missing sections (e.g., Verse 2, Bridge) based on the provided story and description.
-        """
-        print("USER PROMPT: ", user_prompt)
+        system_prompt = GENERATE_LYRICS_SYSTEM_PROMPT.replace("{composition_plan_from_elevenlabs}", composition_plan_from_elevenlabs_str).replace("{lyrics_dictionary}", lyrics_dictionary_str).replace("{description}", description_str)
+        user_prompt = GENERATE_LYRICS_USER_PROMPT
         print("SYSTEM PROMPT: ", system_prompt)
+        print("USER PROMPT: ", user_prompt)
+
         updated_plan = chat_completion_json(system_prompt=system_prompt, user_prompt=user_prompt)
         return updated_plan
 
@@ -82,7 +70,13 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             raise HTTPException(status_code=404, detail="Composition plan not found")
         
         composition_plan = response.data[0]["composition_plan"]
-        prompt_for_elevenlabs = f"Create a song titled {composition_plan['title']} with a description of {composition_plan['description']}"
+
+        title = str(composition_plan['title'])
+        description = str(composition_plan['description'])
+        positiveGlobalStyles = str(composition_plan['positiveGlobalStyles'])
+        negativeGlobalStyles = str(composition_plan['negativeGlobalStyles'])
+
+        prompt_for_elevenlabs = GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN.replace("{title}", title).replace("{description}", description).replace("{positiveGlobalStyles}", positiveGlobalStyles).replace("{negativeGlobalStyles}", negativeGlobalStyles)
         try:
             composition_plan_elevenlabs = elevenlabs.music.composition_plan.create(
                 prompt=prompt_for_elevenlabs,
@@ -92,8 +86,14 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             error_msg = str(e)
             print("ERROR: ", error_msg)
             raise HTTPException(status_code=500, detail=f"Error creating composition plan from ElevenLabs: {error_msg}")
-
-        updated_plan = await lyrics_substitution(composition_plan, composition_plan_elevenlabs)
+        # Convert composition_plan_elevenlabs to dict if it's a MusicPrompt object
+        if not isinstance(composition_plan_elevenlabs, dict):
+            composition_plan_elevenlabs = composition_plan_elevenlabs.model_dump()
+        
+        if 'lyrics' in composition_plan:
+            updated_plan = await lyrics_substitution(composition_plan, composition_plan_elevenlabs)
+        else:
+            updated_plan = composition_plan_elevenlabs
         # Generate music using ElevenLabs
         try:
             track = elevenlabs.music.compose(
@@ -127,7 +127,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         print("SAVED ID: ", saved_id)
         try:
             db_response = supabase.table("final_compositions").insert({
-                "uuid": uuid.uuid4(),
+                "uuid": str(uuid.uuid4()),
                 "user_id": req.user_id,
                 "run_id": req.run_id,
                 "composition_plan_id": req.composition_plan_id,
