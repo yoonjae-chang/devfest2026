@@ -7,9 +7,9 @@ import "./globals.css";
 
 function HeaderFallback() {
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-transparent">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center">
-        <span className="text-xl font-semibold text-gray-900">TuneTree</span>
+        <span className="text-xl font-semibold text-white drop-shadow-md">TuneTree</span>
         <nav className="ml-auto" aria-label="Main navigation" />
       </div>
     </header>
@@ -39,14 +39,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="light" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased bg-white text-gray-900`}>
+      <body className={`${geistSans.className} antialiased text-gray-900`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >
-          <div className="flex flex-col min-h-screen">
+          {/* Full-bleed background: public/background.jpg (or use background.gif for animated) */}
+          <div
+            className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat bg-gray-900"
+            style={{ backgroundImage: "url('/background.jpg')" }}
+          />
+          <div className="relative flex flex-col min-h-screen">
             <Suspense fallback={<HeaderFallback />}>
               <Header />
             </Suspense>

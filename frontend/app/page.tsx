@@ -6,7 +6,7 @@ import PromptInput from "@/components/tunetree/PromptInput";
 import StyleSelect, { type StyleOption } from "@/components/tunetree/StyleSelect";
 import LyricsToggle from "@/components/tunetree/LyricsToggle";
 import GenerateButton from "@/components/tunetree/GenerateButton";
-import { VideoText } from "@/components/ui/video-text";
+import { TypingAnimation } from "@/components/ui/typing-animation";
 import { backendApi } from "@/lib/api";
 
 export default function Home() {
@@ -81,26 +81,36 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex flex-col items-center py-12 sm:py-16">
-        <div className="w-full px-6 text-center space-y-4 mb-8">
-          <div className="relative h-[120px] sm:h-[160px] w-full max-w-6xl mx-auto min-w-0">
-            <VideoText
-              src="/video/hero.webm"
-              className="w-full h-full"
-              fontSize={16}
-              fontWeight="bold"
-            >
-              TuneTree
-            </VideoText>
+        <div className="w-full px-6 text-center mb-4">
+          <div className="relative h-[120px] sm:h-[160px] w-full max-w-6xl mx-auto min-w-0 flex items-center justify-center">
+            <div className="text-white text-5xl sm:text-6xl font-bold leading-none tracking-tight flex flex-wrap items-center justify-center gap-x-1">
+              <span className="mr-px">Make{"\u00A0"}</span>
+              <TypingAnimation
+                words={[
+                  "the song of your dreams",
+                  "a hit pop song",
+                  "a smooth R&B ballad",
+                  "a heartfelt country tune",
+                  "an upbeat track for the summer",
+                ]}
+                loop={true}
+                className="text-white text-5xl sm:text-6xl font-bold leading-none tracking-tight"
+                startOnView={true}
+                typeSpeed={100}
+                deleteSpeed={60}
+                pauseDelay={1500}
+                showCursor={true}
+                cursorStyle="block"
+              />
+            </div>
           </div>
-          <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
-            Describe your idea and let TuneTree generate music.
-          </p>
+
         </div>
 
         <div className="w-full max-w-2xl flex flex-col items-center gap-8 px-6">
-          <div className="w-full space-y-6">
+          <div className="w-full rounded-2xl glass-panel border border-white/20 bg-white/10 p-6 space-y-6 shadow-xl">
             <PromptInput value={prompt} onChange={setPrompt} />
 
             <div className="flex flex-col sm:flex-row sm:items-end gap-6">

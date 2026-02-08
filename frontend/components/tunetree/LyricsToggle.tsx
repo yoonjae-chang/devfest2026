@@ -15,7 +15,7 @@ export default function LyricsToggle({
     <div className="flex items-center gap-3">
       <label
         htmlFor="lyrics-toggle"
-        className="text-sm font-medium text-gray-700 cursor-pointer"
+        className="text-sm font-medium text-[#6B5A55] cursor-pointer"
       >
         Include lyrics
       </label>
@@ -28,10 +28,10 @@ export default function LyricsToggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`
-          relative inline-flex h-6 w-11 shrink-0 rounded-full border border-gray-300
-          transition-colors focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-offset-2
+          relative inline-flex h-6 w-11 shrink-0 rounded-full border border-white-300
+          transition-colors focus:outline-none focus:ring-2 focus:ring-white-500 focus:ring-offset-2
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${checked ? "bg-black border-black" : "bg-gray-200"}
+          ${checked ? "border-white" : "border-white-200"}
         `}
       >
         <span
