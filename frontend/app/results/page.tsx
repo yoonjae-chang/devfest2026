@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { LineShadowText } from "@/components/ui/line-shadow-text";
 import SongCard, { type SongData } from "@/components/tunetree/SongCard";
 import { backendApi } from "@/lib/api";
 
@@ -264,16 +265,26 @@ function ResultsPageContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white text-gray-900 overflow-hidden">
-      <main className="flex-1 flex flex-col items-center min-h-0 py-6 sm:py-8 px-6">
-        <div className="w-full max-w-5xl mx-auto flex flex-col flex-1 min-h-0 gap-6">
-          <div className="text-center space-y-2 shrink-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-              Choose a version
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 text-black overflow-hidden">
+      <main className="flex-1 flex flex-col items-center min-h-0 py-10 px-6">
+        <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 gap-10">
+          
+          {/* Header */}
+          <div className="text-center space-y-4 shrink-0">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-balance">
+              Choose a{" "}
+              <LineShadowText shadowColor="black" className="italic">
+                version
+              </LineShadowText>
             </h1>
-            <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto">
-              Choose a version to keep. The other will be regenerated based on your tastes.
+
+            <p className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto">
+              Pick the version you like. We’ll regenerate the other based on your edits.
             </p>
+
+            <div className="h-0.5 w-20 bg-black/70 mx-auto rounded-full" />
+
+
           </div>
 
           {error && (
