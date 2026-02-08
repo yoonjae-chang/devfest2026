@@ -4,6 +4,7 @@ Generate music from a composition plan.
 
 import os
 import json
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
@@ -91,8 +92,15 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
             error_msg = str(e)
             print("ERROR: ", error_msg)
             raise HTTPException(status_code=500, detail=f"Error creating composition plan from ElevenLabs: {error_msg}")
-
-        updated_plan = await lyrics_substitution(composition_plan, composition_plan_elevenlabs)
+        print("COMPOSITION PLAN: ", composition_plan)
+        # Convert composition_plan_elevenlabs to dict if it's a MusicPrompt object
+        if not isinstance(composition_plan_elevenlabs, dict):
+            composition_plan_elevenlabs = composition_plan_elevenlabs.model_dump()
+        
+        if 'lyrics' in composition_plan:
+            updated_plan = await lyrics_substitution(composition_plan, composition_plan_elevenlabs)
+        else:
+            updated_plan = composition_plan_elevenlabs
         # Generate music using ElevenLabs
         try:
             track = elevenlabs.music.compose(
@@ -126,7 +134,7 @@ async def generate_final_composition_endpoint(req: GenerateFinalComposition, use
         print("SAVED ID: ", saved_id)
         try:
             db_response = supabase.table("final_compositions").insert({
-                "uuid": uuid.uuid4(),
+                "uuid": str(uuid.uuid4()),
                 "user_id": req.user_id,
                 "run_id": req.run_id,
                 "composition_plan_id": req.composition_plan_id,
