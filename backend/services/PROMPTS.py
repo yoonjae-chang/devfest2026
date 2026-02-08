@@ -1,4 +1,3 @@
-# Your sentences formatted as lyrics (Verse 1 + Chorus arrays). Output must use this array-of-lines format.
 GENRE_LYRICS_EXAMPLES = {
     "Pop": '"Verse 1": ["I hopped off the plane at LAX", "With a dream and my cardigan", "Welcome to the land of fame excess (whoa)", "Am I gonna fit in?"], "Chorus": ["So, I put my hands up", "They\'re playing my song, the butterflies fly away", "I\'m nodding my head like, yeah", "Moving my hips like, yeah"]',
     "R&B": '"Verse 1": ["Took me out to the ballet", "You proposed, I went on the road", "You was feelin\' empty, so you left me", "Now I\'m stuck dealin\' with a deadbeat"], "Chorus": ["I don\'t wanna lose what\'s left of you", "How am I supposed to tell ya?", "I don\'t wanna see you with anyone but me", "Nobody gets me like you"]',
@@ -17,12 +16,12 @@ GENRE_LYRICS_EXAMPLES = {
 def get_genre_lyrics_example(styles: list[str]) -> str:
     """Return an example lyrics snippet for the first matching genre, or a default."""
     if not styles:
-        return GENRE_LYRICS_EXAMPLES["Pop"]
+        return GENRE_LYRICS_EXAMPLES["R&B"]
     for s in styles:
         key = s.strip()
         if key in GENRE_LYRICS_EXAMPLES:
             return GENRE_LYRICS_EXAMPLES[key]
-    return GENRE_LYRICS_EXAMPLES["Pop"]
+    return GENRE_LYRICS_EXAMPLES["R&B"]
 
 
 GENERATE_INITIAL_SCHEMA_SYSTEM_WITH_LYRICS_SYSTEM_PROMPT = """
@@ -129,4 +128,5 @@ Integrate the lyrics into the plan and expand missing sections (e.g., Verse 2, B
 GENERATE_PROMPT_FOR_ELEVENLABS_COMPOSITION_PLAN = """
 Create a song titled {title} with a description of {description}
 The song should be a {positiveGlobalStyles} as styles to include and {negativeGlobalStyles} as styles to avoid.
+Vocal style: use smooth, sweet vocals for pop, R&B, EDM, indie, jazz, country, folk, classical; use harsh, powerful vocals for rock, phonk, and metal.
 """
