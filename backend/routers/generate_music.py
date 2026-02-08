@@ -4,6 +4,7 @@ Generate music from a composition plan.
 
 import os
 import json
+import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 import pydantic
