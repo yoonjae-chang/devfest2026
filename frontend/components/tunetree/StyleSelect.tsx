@@ -92,30 +92,38 @@ export default function StyleSelect({
         </button>
 
         {open && (
-          <div
-            className="absolute z-50 mt-1 w-full min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-            role="listbox"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {GENRE_OPTIONS.map((genre) => (
-              <label
-                key={genre}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                role="option"
-                aria-selected={value.includes(genre)}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  checked={value.includes(genre)}
-                  onChange={() => toggleGenre(genre)}
-                  className="h-4 w-4 rounded border-gray-300 accent-[#6B5A55] focus:ring-[#6B5A55]"
+          <>
+            {/* Backdrop overlay to block clicks behind the dropdown */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className="absolute z-50 mt-1 w-full min-w-[200px] max-h-[280px] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+              role="listbox"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {GENRE_OPTIONS.map((genre) => (
+                <label
+                  key={genre}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                  role="option"
+                  aria-selected={value.includes(genre)}
                   onClick={(e) => e.stopPropagation()}
-                />
-                <span className="text-[#6B5A55]">{genre}</span>
-              </label>
-            ))}
-          </div>
+                >
+                  <input
+                    type="checkbox"
+                    checked={value.includes(genre)}
+                    onChange={() => toggleGenre(genre)}
+                    className="h-4 w-4 rounded border-gray-300 accent-[#6B5A55] focus:ring-[#6B5A55]"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span className="text-[#6B5A55]">{genre}</span>
+                </label>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
